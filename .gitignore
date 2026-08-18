@@ -1,0 +1,28 @@
+# user-local tool binaries (installed by scripts/bootstrap-cluster.sh)
+/bin/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# node (if a dashboard stretch goal is added)
+node_modules/
+
+# evaluation run output (large / regenerable)
+evaluation/results/*.jsonl
+evaluation/results/*.csv
+!evaluation/results/.gitkeep
+
+# kubeconfig / kind artifacts
+kubeconfig*
+*.kubeconfig
+
+# local audit log capture
+infra/kind/audit/*.log
+
+# editor/OS cruft
+.DS_Store
+*.swp
