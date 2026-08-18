@@ -1,0 +1,56 @@
+# Kubernetes audit policy for the tenant-isolation control-plane monitor.
+#
+# Goal: capture "who (principal) did what (verb) to what (resource, namespace)" for every
+# namespaced request, without logging full request/response bodies (RequestResponse would be
+# far too high-volume for a laptop-hosted kind cluster over a semester of runs).
+#
+# Metadata level gives: timestamp, user/serviceaccount, verb, namespace, resource, response
+# code — exactly what the control-plane monitor needs to flag a principal from one tenant's
+# namespace touching a resource scoped to a different tenant's namespace. See
+# monitors/control-plane-monitor and docs/architecture.md.
+apiVersion: audit.k8s.io/v1
+kind: Policy
+omitStages:
+  - "RequestReceived"
+rules:
+  # Drop high-volume, low-signal read traffic from system components entirely.
+  - level: None
+    users:
+      - "system:kube-scheduler"
+      - "system:kube-controller-manager"
+      - "system:apiserver"
+    verbs: ["get", "list", "watch"]
+
+  - level: None
+    userGroups: ["system:nodes"]
+    verbs: ["get", "list", "watch"]
+
+  - level: None
+    resources:
+      - group: ""
+        resources: ["events"]
+
+  # Health/discovery noise.
+  - level: None
+    nonResourceURLs:
+      - "/healthz*"
+      - "/livez*"
+      - "/readyz*"
+      - "/metrics"
+      - "/version"
+      - "/openapi/*"
+      - "/api*"
+
+  # Everything else touching namespaced resources — this is the tenant-boundary-relevant
+  # traffic the control-plane monitor tails.
+  - level: Metadata
+    resources:
+      - group: ""
+      - group: "apps"
+      - group: "batch"
+      - group: "rbac.authorization.k8s.io"
+      - group: "networking.k8s.io"
+    verbs: ["create", "update", "patch", "delete", "get", "list", "watch"]
+
+  # Catch-all fallback at Metadata level for anything not matched above.
+  - level: Metadata

@@ -1,0 +1,36 @@
+# Helm values for the Cilium CNI + Hubble install on the kind cluster (scripts/install-cilium.sh).
+# Pinned chart version tested against this config: 1.16.2 (matches the cilium-cli default
+# image version — see docs/risk-log.md #4 on why versions are pinned rather than "latest").
+#
+# kube-proxy replacement is deliberately left disabled: it requires extra API-server-address
+# config that's fragile under kind and isn't needed for any of this project's detection goals
+# (see docs/implementation-plan.md, "Key Technical Mechanics").
+kubeProxyReplacement: false
+
+# Explicit MTU: Cilium auto-detected 1500 for cilium_vxlan/cilium_host on this host, same as
+# the underlying kind/docker bridge MTU. With VXLAN's ~50-byte encapsulation overhead that's
+# wrong — larger packets (e.g. TLS handshake certificate exchange, which broke hubble-relay's
+# peer sync to hubble-peer with a 30s "context deadline exceeded" while plain TCP connects
+# worked fine) get silently dropped instead of fragmented. See docs/risk-log.md #10.
+MTU: 1450
+
+# Hubble relay/UI/metrics enabled for the network-flow-monitor (isolation track — see
+# monitors/network-flow-monitor and docs/architecture.md). L7 (http) visibility included so
+# scenarios can eventually use verdicts beyond raw L3/L4 if needed (e.g. dataplane-only
+# boundary crossings).
+hubble:
+  enabled: true
+  relay:
+    enabled: true
+  ui:
+    enabled: true
+  metrics:
+    enableOpenMetrics: true
+    enabled:
+      - "dns"
+      - "drop"
+      - "tcp"
+      - "flow"
+      - "port-distribution"
+      - "icmp"
+      - "http"

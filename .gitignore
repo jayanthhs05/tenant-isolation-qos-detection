@@ -20,8 +20,9 @@ evaluation/results/*.csv
 kubeconfig*
 *.kubeconfig
 
-# local audit log capture
+# local audit log capture and rendered (templated) kind config
 infra/kind/audit/*.log
+infra/kind/kind-config.rendered.yaml
 
 # editor/OS cruft
 .DS_Store

@@ -1,0 +1,68 @@
+# Template rendered by scripts/bootstrap-cluster.sh (envsubst on ${AUDIT_HOST_DIR}) before
+# being piped into `kind create cluster --config -`. Not applied directly.
+#
+# Two mount hops are required to get audit logs onto the host, see docs/architecture.md /
+# docs/risk-log.md:
+#   1. extraMounts bind-mounts the host audit dir into the kind node container itself.
+#   2. kubeadmConfigPatches' apiServer.extraVolumes mounts that same node-local path into the
+#      kube-apiserver *static pod* — without this second hop the apiserver process can't see
+#      the audit-policy file or write the log, even though both exist on the node.
+# The audit-policy.yaml file must exist on the host before `kind create cluster` runs, since
+# kubeadm reads it at apiserver startup.
+#
+# Every node also gets a KubeletConfiguration patch pointing resolvConf at a clean, tracked
+# file (infra/kind/resolv-clean.conf) instead of the node's own Docker-managed resolv.conf,
+# which otherwise leaks the host's DNS search domain into every pod and can hijack in-cluster
+# name resolution — see docs/risk-log.md #11.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  # Cilium replaces kindnet as the CNI (installed separately via scripts/install-cilium.sh).
+  disableDefaultCNI: true
+  podSubnet: "10.244.0.0/16"
+  serviceSubnet: "10.245.0.0/16"
+nodes:
+  - role: control-plane
+    extraMounts:
+      - hostPath: ${AUDIT_HOST_DIR}
+        containerPath: /etc/kubernetes/audit
+      - hostPath: ${RESOLV_CLEAN_PATH}
+        containerPath: /etc/kubernetes/resolv-clean.conf
+        readOnly: true
+    kubeadmConfigPatches:
+      - |
+        kind: ClusterConfiguration
+        apiServer:
+          extraArgs:
+            audit-log-path: /etc/kubernetes/audit/audit.log
+            audit-log-maxage: "7"
+            audit-log-maxbackup: "3"
+            audit-log-maxsize: "100"
+            audit-policy-file: /etc/kubernetes/audit/audit-policy.yaml
+          extraVolumes:
+            - name: audit-config
+              hostPath: /etc/kubernetes/audit
+              mountPath: /etc/kubernetes/audit
+              readOnly: false
+              pathType: DirectoryOrCreate
+      - |
+        kind: KubeletConfiguration
+        resolvConf: /etc/kubernetes/resolv-clean.conf
+  - role: worker
+    extraMounts:
+      - hostPath: ${RESOLV_CLEAN_PATH}
+        containerPath: /etc/kubernetes/resolv-clean.conf
+        readOnly: true
+    kubeadmConfigPatches:
+      - |
+        kind: KubeletConfiguration
+        resolvConf: /etc/kubernetes/resolv-clean.conf
+  - role: worker
+    extraMounts:
+      - hostPath: ${RESOLV_CLEAN_PATH}
+        containerPath: /etc/kubernetes/resolv-clean.conf
+        readOnly: true
+    kubeadmConfigPatches:
+      - |
+        kind: KubeletConfiguration
+        resolvConf: /etc/kubernetes/resolv-clean.conf
