@@ -1,0 +1,34 @@
+# Default-deny ingress/egress for every pod in this namespace, with explicit allows for:
+# same-namespace pod-to-pod traffic, and DNS egress to kube-system (CoreDNS) — everything else
+# crossing the tenant boundary is exactly what monitors/network-flow-monitor watches for.
+# kube-system is matched via the built-in `kubernetes.io/metadata.name` namespace label
+# (auto-applied by Kubernetes since 1.21), so it needs no manual labeling.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tenant-isolation
+  namespace: tenant-b
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              tenant: tenant-b
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              tenant: tenant-b
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

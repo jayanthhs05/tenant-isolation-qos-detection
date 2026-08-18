@@ -1,0 +1,33 @@
+# ServiceAccount + Role + RoleBinding scoped to this tenant's own namespace only. This is the
+# identity the app pod runs as (app/k8s/app.yaml.tmpl) and the "principal" isolation scenarios
+# (scenarios/isolation/) try to misuse against other tenants' namespaces — see
+# docs/architecture.md.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tenant-a-app
+  namespace: tenant-a
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tenant-a-app-role
+  namespace: tenant-a
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tenant-a-app-binding
+  namespace: tenant-a
+subjects:
+  - kind: ServiceAccount
+    name: tenant-a-app
+    namespace: tenant-a
+roleRef:
+  kind: Role
+  name: tenant-a-app-role
+  apiGroup: rbac.authorization.k8s.io

@@ -1,0 +1,33 @@
+# Per-tenant resource ceiling (fairness/QoS track — see docs/architecture.md) and sane
+# per-container defaults so a pod manifest that omits requests/limits doesn't silently become
+# unbounded (which kube-bench flags but doesn't itself enforce, see docs/risk-log.md #2).
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: tenant-quota
+  namespace: tenant-b
+spec:
+  hard:
+    requests.cpu: "1"
+    requests.memory: 512Mi
+    limits.cpu: "2"
+    limits.memory: 1Gi
+    pods: "10"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: tenant-limits
+  namespace: tenant-b
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        cpu: "50m"
+        memory: "64Mi"
+      default:
+        cpu: "250m"
+        memory: "128Mi"
+      max:
+        cpu: "500m"
+        memory: "256Mi"
