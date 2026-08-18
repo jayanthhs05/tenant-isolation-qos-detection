@@ -1,0 +1,22 @@
+{
+  "checks": [
+    {
+      "namespace": "tenant-a",
+      "has_resourcequota_with_cpu_and_memory_limits": true,
+      "has_limitrange": true,
+      "pass": true
+    },
+    {
+      "namespace": "tenant-b",
+      "has_resourcequota_with_cpu_and_memory_limits": true,
+      "has_limitrange": true,
+      "pass": true
+    },
+    {
+      "namespace": "tenant-c",
+      "has_resourcequota_with_cpu_and_memory_limits": true,
+      "has_limitrange": true,
+      "pass": true
+    }
+  ]
+}

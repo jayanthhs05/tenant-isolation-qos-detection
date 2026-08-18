@@ -84,7 +84,7 @@ install_hubble_cli() {
 }
 
 install_kube_bench() {
-  if [ -x ./kube-bench ] && ./kube-bench version 2>/dev/null | grep -q "${KUBE_BENCH_VERSION}"; then
+  if [ -x ./kube-bench ] && [ -d ./kube-bench-cfg ] && ./kube-bench version 2>/dev/null | grep -q "${KUBE_BENCH_VERSION}"; then
     log "kube-bench ${KUBE_BENCH_VERSION} already installed"; return
   fi
   log "Installing kube-bench ${KUBE_BENCH_VERSION}"
@@ -93,6 +93,11 @@ install_kube_bench() {
   tar -xzf "${tmp}/kube-bench.tar.gz" -C "${tmp}"
   mv "${tmp}/kube-bench" ./kube-bench
   chmod +x kube-bench
+  # The binary alone isn't runnable — kube-bench loads its CIS benchmark check definitions
+  # (per-target YAML) from a `cfg/` directory next to it at runtime. Keep it under a distinct
+  # name (not `cfg`) so it doesn't collide with any other tool's working directory.
+  rm -rf ./kube-bench-cfg
+  mv "${tmp}/cfg" ./kube-bench-cfg
   rm -rf "${tmp}"
 }
 
