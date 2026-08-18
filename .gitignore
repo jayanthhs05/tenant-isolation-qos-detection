@@ -16,6 +16,9 @@ evaluation/results/*.jsonl
 evaluation/results/*.csv
 !evaluation/results/.gitkeep
 
+# monitor runtime output (regenerable, see monitors/common/sink.py)
+monitors/*/events.jsonl
+
 # kubeconfig / kind artifacts
 kubeconfig*
 *.kubeconfig

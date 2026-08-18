@@ -110,3 +110,20 @@ the nameserver IP in `resolv-clean.conf` (`172.18.0.1`) is this machine's curren
 embedded-DNS address for the `kind` network — verify it still matches (`docker exec
 tenant-lab-control-plane cat /etc/resolv.conf` on a fresh, pre-fix node) before reusing this
 config on a different machine or after a Docker upgrade.
+
+## 12. `kubectl ... --token=X` does not reliably impersonate a tenant identity
+**Status:** Resolved — use raw `curl` (or a dedicated kubeconfig context) for identity-scoped
+scenario scripts instead.
+Hit while manually verifying Phase 5's control-plane monitor: `kubectl get pods -n tenant-b
+--token="$(kubectl create token tenant-a-app -n tenant-a)"` returned a real pod list — looking
+exactly like an RBAC bypass. It wasn't one. Checking the audit log for that exact request
+showed it was authenticated as `kubernetes-admin` (the ambient kubeconfig's existing
+client-certificate identity), not `tenant-a-app` — `--token` did not cleanly override the
+kubeconfig's already-configured client-cert auth for this context. A raw `curl -H
+"Authorization: Bearer $TOKEN" <apiserver>/api/v1/namespaces/tenant-b/pods` with the same
+token correctly returned `403 Forbidden`, confirming RBAC itself was never broken. **Takeaway
+for scenarios/ (Phase 10) and anyone re-testing RBAC manually:** don't trust `kubectl
+--token=X` layered on top of an existing admin kubeconfig context to prove or disprove an
+isolation boundary — verify with `curl` against the apiserver directly (or a kubeconfig
+context that has no other auth configured), and cross-check against what the audit log
+actually recorded as `user.username` for that request.
