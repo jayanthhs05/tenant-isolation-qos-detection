@@ -147,3 +147,23 @@ and `resource_type: "network-flow-egress-denied"` so it's distinguishable downst
 fully-resolved cross-tenant flow. Ingress-side denies (evaluated at the destination endpoint,
 which by definition has already resolved its own identity) are unaffected and get full
 `peer_namespace` resolution through the normal path.
+
+## 14. NetworkPolicy on a Service ClusterIP is a no-op with kubeProxyReplacement disabled
+**Status:** Resolved — scenarios target pod IPs directly, not Service ClusterIPs.
+Hit while building Phase 10's `isolation/01-networkpolicy-misconfig` scenario: broadening
+*both* tenant-a's egress and tenant-b's ingress selectors (confirmed applied via `kubectl get
+networkpolicy -o jsonpath`) still left a cross-tenant request to tenant-b's Service ClusterIP
+timing out, while an identical request straight to the same backend pod's own IP succeeded
+immediately. Root cause: `infra/cilium/values.yaml` sets `kubeProxyReplacement: false`, so
+kube-proxy (not Cilium) owns Service NAT via iptables. Cilium's eBPF policy hook sits at the
+pod's veth, *upstream* of that NAT — it evaluates the packet against the still-unresolved
+ClusterIP, which matches no Cilium-managed endpoint identity, and drops it regardless of how
+permissive the NetworkPolicy's namespaceSelector rules are; those rules only ever match real
+pod/namespace identities, never a bare Service IP. **Fix:** every scenario that needs to
+demonstrate an *allowed* cross-tenant flow (`scenarios/isolation/01-networkpolicy-misconfig`,
+`05-dataplane-only-crossing`) targets the peer pod's own IP directly. **Implication beyond
+scenarios:** this cluster configuration means NetworkPolicy alone cannot govern Service-level
+traffic — namespaceSelector-based policies only take effect for traffic that already resolves
+to a real pod identity (direct pod IP, or traffic Cilium itself NAT's under
+`kubeProxyReplacement: true`). Worth flagging explicitly in the Phase 12 write-up as a
+configuration-specific caveat, not a general NetworkPolicy limitation.

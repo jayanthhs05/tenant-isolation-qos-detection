@@ -34,7 +34,7 @@ from .alert import Alert  # noqa: E402
 CORRELATION_WINDOW_SECONDS = 10.0
 
 # resource-monitor's own resource_type values (monitors/resource-monitor/monitor.py)
-PRESSURE_RESOURCE_TYPES = {"pod-cpu-usage", "pod-cpu-throttle"}
+PRESSURE_RESOURCE_TYPES = {"pod-cpu-usage", "pod-cpu-throttle", "pod-memory-usage"}
 # not yet emitted by any monitor as of Phase 8 (needs the Phase-10+ k6 load generator to
 # exist) — defined here so the classification rule and its tests are ready the moment
 # load/k6 starts producing this event shape: source="resource",

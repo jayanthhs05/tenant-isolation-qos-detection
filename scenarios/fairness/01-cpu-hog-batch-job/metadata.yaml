@@ -1,0 +1,17 @@
+id: fairness-01-cpu-hog-batch-job
+category: fairness
+description: >
+  Launches a single-threaded CPU-bound busy-loop pod in tenant-a with a 200m CPU limit — the
+  container tries to consume a full core against a 200m ceiling, guaranteeing CFS throttling
+  within the first polling interval. All three tenant pods currently run on the same physical
+  kind node (see docs/risk-log.md #5), so this is genuine single-host resource contention, not
+  a simulation; expected_namespaces lists all three tenants since any of the other two could
+  show a co-located QoS impact. Note: as of Phase 10, no monitor yet emits the victim-side
+  QoS-breach event fusion needs to actually classify this as "fairness" (that needs the k6
+  load generator, not yet built) — resource-monitor's own pressure/throttle events are still
+  produced and logged correctly; only the final fused alert is pending that piece.
+expected_namespaces: [tenant-a, tenant-b, tenant-c]
+expected_type: fairness
+dwell_seconds: 20
+inject: inject.sh
+revert: revert.sh

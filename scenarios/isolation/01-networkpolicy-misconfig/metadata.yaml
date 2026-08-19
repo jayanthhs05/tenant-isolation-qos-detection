@@ -1,0 +1,14 @@
+id: isolation-01-networkpolicy-misconfig
+category: isolation
+description: >
+  Broadens tenant-b's NetworkPolicy ingress selector from "same tenant only" to "any
+  tenant-labeled namespace" (a realistic operator mistake — e.g. copy-pasting a selector and
+  forgetting to scope it), then issues a real HTTP request from tenant-a's pod to tenant-b's
+  Service. This traffic never touches the apiserver, so control-plane-monitor sees nothing —
+  it's the scenario that specifically exercises network-flow-monitor's core ALLOWED-crossing
+  case.
+expected_namespaces: [tenant-a, tenant-b]
+expected_type: isolation
+dwell_seconds: 8
+inject: inject.sh
+revert: revert.sh

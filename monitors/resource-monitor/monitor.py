@@ -33,6 +33,7 @@ from common import (  # noqa: E402
     node_names,
     now_iso,
     parse_cpu_quantity,
+    parse_memory_quantity,
     parse_metric,
     tenant_namespaces,
 )
@@ -41,22 +42,24 @@ DEFAULT_OUTPUT = Path(__file__).resolve().parent / "events.jsonl"
 THROTTLE_METRIC = "container_cpu_cfs_throttled_periods_total"
 
 
-def pod_cpu_limits(tenants: set[str]) -> dict[tuple[str, str], float | None]:
-    """(namespace, pod_name) -> first container's CPU limit in cores (None if unset). Only
-    the first container matters here: every tenant Deployment in this project runs exactly one
-    container (app/k8s/app.yaml.tmpl)."""
+def pod_limits(tenants: set[str]) -> dict[tuple[str, str], dict[str, float | None]]:
+    """(namespace, pod_name) -> {"cpu": cores, "memory": bytes} for the first container (None
+    for whichever is unset). Only the first container matters here: every tenant Deployment in
+    this project runs exactly one container (app/k8s/app.yaml.tmpl)."""
     data = kubectl_get_raw("/api/v1/pods") or {}
-    limits: dict[tuple[str, str], float | None] = {}
+    limits: dict[tuple[str, str], dict[str, float | None]] = {}
     for pod in data.get("items", []):
         namespace = pod.get("metadata", {}).get("namespace")
         if namespace not in tenants:
             continue
         name = pod.get("metadata", {}).get("name")
         containers = pod.get("spec", {}).get("containers", [])
-        cpu_limit = None
+        cpu_limit = memory_limit = None
         if containers:
-            cpu_limit = parse_cpu_quantity(containers[0].get("resources", {}).get("limits", {}).get("cpu"))
-        limits[(namespace, name)] = cpu_limit
+            container_limits = containers[0].get("resources", {}).get("limits", {})
+            cpu_limit = parse_cpu_quantity(container_limits.get("cpu"))
+            memory_limit = parse_memory_quantity(container_limits.get("memory"))
+        limits[(namespace, name)] = {"cpu": cpu_limit, "memory": memory_limit}
     return limits
 
 
@@ -100,6 +103,8 @@ def main() -> int:
     parser.add_argument("--interval-seconds", type=float, default=10.0)
     parser.add_argument("--cpu-pressure-ratio", type=float, default=0.85,
                          help="usageNanoCores / container CPU limit above which usage itself is reported")
+    parser.add_argument("--memory-pressure-ratio", type=float, default=0.85,
+                         help="workingSetBytes / container memory limit above which usage itself is reported")
     parser.add_argument("--tenants-refresh-seconds", type=int, default=30)
     args = parser.parse_args()
 
@@ -107,7 +112,7 @@ def main() -> int:
 
     tenants = tenant_namespaces()
     nodes = node_names()
-    limits = pod_cpu_limits(tenants)
+    limits = pod_limits(tenants)
     print(f"[resource-monitor] tenant namespaces: {sorted(tenants) or '(none yet)'}, nodes: {nodes}")
     last_refresh = time.monotonic()
 
@@ -119,30 +124,50 @@ def main() -> int:
             if time.monotonic() - last_refresh > args.tenants_refresh_seconds:
                 tenants = tenant_namespaces() or tenants
                 nodes = node_names() or nodes
-                limits = pod_cpu_limits(tenants)
+                limits = pod_limits(tenants)
                 last_refresh = time.monotonic()
 
             for node in nodes:
                 for pod in poll_usage(node, tenants):
+                    pod_limit = limits.get((pod["namespace"], pod["pod"]), {})
+
                     cpu_cores = pod["usageNanoCores"] / 1e9 if pod["usageNanoCores"] is not None else None
-                    limit = limits.get((pod["namespace"], pod["pod"]))
-                    if cpu_cores is None or not limit:
-                        continue
-                    ratio = cpu_cores / limit
-                    if ratio >= args.cpu_pressure_ratio:
-                        event = Event(
-                            source="resource",
-                            timestamp=now_iso(),
-                            namespace=pod["namespace"],
-                            principal=pod["pod"],
-                            peer_namespace=None,
-                            resource_type="pod-cpu-usage",
-                            verb="pressure",
-                            raw={**pod, "cpu_limit_cores": limit, "usage_ratio": ratio},
-                        )
-                        sink.write(event)
-                        print(f"[ALERT] resource pressure: {pod['namespace']}/{pod['pod']} "
-                              f"at {ratio:.0%} of its {limit:.2f}-core CPU limit")
+                    cpu_limit = pod_limit.get("cpu")
+                    if cpu_cores is not None and cpu_limit:
+                        ratio = cpu_cores / cpu_limit
+                        if ratio >= args.cpu_pressure_ratio:
+                            event = Event(
+                                source="resource",
+                                timestamp=now_iso(),
+                                namespace=pod["namespace"],
+                                principal=pod["pod"],
+                                peer_namespace=None,
+                                resource_type="pod-cpu-usage",
+                                verb="pressure",
+                                raw={**pod, "cpu_limit_cores": cpu_limit, "usage_ratio": ratio},
+                            )
+                            sink.write(event)
+                            print(f"[ALERT] resource pressure: {pod['namespace']}/{pod['pod']} "
+                                  f"at {ratio:.0%} of its {cpu_limit:.2f}-core CPU limit")
+
+                    memory_bytes = pod["workingSetBytes"]
+                    memory_limit = pod_limit.get("memory")
+                    if memory_bytes is not None and memory_limit:
+                        ratio = memory_bytes / memory_limit
+                        if ratio >= args.memory_pressure_ratio:
+                            event = Event(
+                                source="resource",
+                                timestamp=now_iso(),
+                                namespace=pod["namespace"],
+                                principal=pod["pod"],
+                                peer_namespace=None,
+                                resource_type="pod-memory-usage",
+                                verb="pressure",
+                                raw={**pod, "memory_limit_bytes": memory_limit, "usage_ratio": ratio},
+                            )
+                            sink.write(event)
+                            print(f"[ALERT] resource pressure: {pod['namespace']}/{pod['pod']} "
+                                  f"at {ratio:.0%} of its {memory_limit / 1e6:.0f}MB memory limit")
 
                 throttle_now = poll_throttling(node, tenants)
                 for key, value in throttle_now.items():

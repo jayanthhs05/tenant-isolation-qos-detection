@@ -1,0 +1,14 @@
+id: isolation-05-dataplane-only-crossing
+category: isolation
+description: >
+  Same class of NetworkPolicy misconfiguration as scenario 01, but against a different tenant
+  pair (tenant-a -> tenant-c) and hitting the peer pod's IP directly rather than its Service —
+  making the "control-plane-monitor sees absolutely nothing here, only network-flow-monitor
+  can" property unambiguous, since there's no Service indirection either. Kept as a distinct
+  scenario (rather than reusing 01) so the evaluation set has more than one isolation-only
+  tenant pair to score against.
+expected_namespaces: [tenant-a, tenant-c]
+expected_type: isolation
+dwell_seconds: 8
+inject: inject.sh
+revert: revert.sh

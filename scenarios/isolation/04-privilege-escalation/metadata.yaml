@@ -1,0 +1,13 @@
+id: isolation-04-privilege-escalation
+category: isolation
+description: >
+  A full escalation chain rather than a single flat misconfiguration: tenant-a's ServiceAccount
+  is granted the cluster-admin ClusterRole via a ClusterRoleBinding (the worst-case
+  over-permissioning mistake — not scoped to any one namespace), then that access is abused
+  against both other tenants' namespaces. Produces isolation evidence for two distinct tenant
+  pairs (tenant-a/tenant-b and tenant-a/tenant-c) from a single injected misconfiguration.
+expected_namespaces: [tenant-a, tenant-b, tenant-c]
+expected_type: isolation
+dwell_seconds: 8
+inject: inject.sh
+revert: revert.sh

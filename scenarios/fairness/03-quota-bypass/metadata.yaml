@@ -1,0 +1,14 @@
+id: fairness-03-quota-bypass
+category: fairness
+description: >
+  Simulates an admin misconfiguration that raises tenant-a's ResourceQuota and per-container
+  LimitRange ceiling well beyond its intended fair share, then launches a batch job sized to
+  use that new headroom (1500m CPU — more than 5x the original 250m LimitRange max, so it
+  would have been rejected outright before this injection). Distinct from scenarios 01/02: the
+  noisy behavior here is only possible *because* the isolation primitive itself (the quota) was
+  weakened, not because a workload simply asked for more within its existing fair share.
+expected_namespaces: [tenant-a, tenant-b, tenant-c]
+expected_type: fairness
+dwell_seconds: 20
+inject: inject.sh
+revert: revert.sh

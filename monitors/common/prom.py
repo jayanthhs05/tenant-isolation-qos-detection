@@ -39,3 +39,20 @@ def parse_cpu_quantity(quantity: str | None) -> float | None:
     if quantity.endswith("m"):
         return float(quantity[:-1]) / 1000.0
     return float(quantity)
+
+
+_MEMORY_SUFFIXES = {
+    "Ki": 1024, "Mi": 1024**2, "Gi": 1024**3, "Ti": 1024**4,
+    "K": 1000, "M": 1000**2, "G": 1000**3, "T": 1000**4,
+}
+
+
+def parse_memory_quantity(quantity: str | None) -> float | None:
+    """Kubernetes memory quantity ("128Mi", "512Ki", "1Gi") -> bytes as a float. None if unset."""
+    if not quantity:
+        return None
+    quantity = quantity.strip()
+    for suffix, multiplier in _MEMORY_SUFFIXES.items():
+        if quantity.endswith(suffix):
+            return float(quantity[: -len(suffix)]) * multiplier
+    return float(quantity)

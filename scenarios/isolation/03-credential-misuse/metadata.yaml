@@ -1,0 +1,14 @@
+id: isolation-03-credential-misuse
+category: isolation
+description: >
+  tenant-a's own valid ServiceAccount token is used to directly probe a sensitive resource
+  (Secrets) in tenant-b's namespace, with no misconfiguration granting it — RBAC correctly
+  denies the request (403). The attempt itself, not its success, is the isolation signal:
+  control-plane-monitor flags cross-tenant access attempts regardless of the authorization
+  decision, since a denied probe is still evidence someone tried. No cluster state is mutated,
+  so there is nothing to revert.
+expected_namespaces: [tenant-a, tenant-b]
+expected_type: isolation
+dwell_seconds: 5
+inject: inject.sh
+revert: revert.sh

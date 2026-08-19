@@ -1,0 +1,13 @@
+id: isolation-02-rbac-overpermission
+category: isolation
+description: >
+  Grants tenant-a's ServiceAccount the built-in "view" ClusterRole scoped to tenant-b's
+  namespace via a RoleBinding (a realistic over-permissioning mistake — someone reaches for a
+  broad built-in role instead of a narrow one), then actually exercises that grant with a real
+  API request authenticated as tenant-a-app. Unlike scenario 01, this crossing IS visible to
+  control-plane-monitor (it's a real apiserver call, correctly authorized this time).
+expected_namespaces: [tenant-a, tenant-b]
+expected_type: isolation
+dwell_seconds: 8
+inject: inject.sh
+revert: revert.sh

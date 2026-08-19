@@ -16,9 +16,10 @@ evaluation/results/*.jsonl
 evaluation/results/*.csv
 !evaluation/results/.gitkeep
 
-# monitor / fusion runtime output (regenerable, see monitors/common/sink.py)
+# monitor / fusion / scenario runtime output (regenerable, see monitors/common/sink.py)
 monitors/*/events.jsonl
 fusion/alerts.jsonl
+scenarios/ground_truth.jsonl
 
 # kubeconfig / kind artifacts
 kubeconfig*

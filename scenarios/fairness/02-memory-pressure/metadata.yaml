@@ -1,0 +1,13 @@
+id: fairness-02-memory-pressure
+category: fairness
+description: >
+  Launches a pod in tenant-a that gradually allocates memory (5MB every 0.5s) against a 180Mi
+  limit, crossing resource-monitor's memory-pressure ratio well before the container is
+  eventually OOM-killed — giving the monitor a real window to observe rising workingSetBytes
+  pressure rather than just a terminal kill event. Same single-host-contention caveat as
+  scenario 01 (docs/risk-log.md #5) and the same pending-on-k6 caveat for full fusion coverage.
+expected_namespaces: [tenant-a, tenant-b, tenant-c]
+expected_type: fairness
+dwell_seconds: 20
+inject: inject.sh
+revert: revert.sh
