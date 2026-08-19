@@ -127,3 +127,23 @@ for scenarios/ (Phase 10) and anyone re-testing RBAC manually:** don't trust `ku
 isolation boundary — verify with `curl` against the apiserver directly (or a kubeconfig
 context that has no other auth configured), and cross-check against what the audit log
 actually recorded as `user.username` for that request.
+
+## 13. Hubble doesn't resolve peer identity on egress-side policy drops
+**Status:** Resolved — network-flow-monitor handles this explicitly.
+Hit while validating Phase 6's network-flow monitor: a cross-tenant request blocked by a
+tenant's own default-deny **egress** NetworkPolicy produces a `DROPPED` /
+`drop_reason_desc: POLICY_DENIED` flow where `source.namespace` is populated but
+`destination.namespace` is **absent** — confirmed live (`hubble observe --verdict DROPPED -o
+json`) — because Cilium drops the packet before it ever reaches the peer's endpoint, so the
+peer's Cilium identity (and therefore its namespace) is never resolved; only the destination
+IP and a fallback identity (`2`, "world") are known. A naive classifier requiring both
+namespaces to be known and different would silently miss every egress-side deny — the far
+more common enforcement path, since NetworkPolicy's default-deny-egress is what most tenant
+namespaces here actually rely on. **Fix:** `classify()` in
+`monitors/network-flow-monitor/monitor.py` has a second rule: `verdict == "DROPPED"` +
+`drop_reason_desc == "POLICY_DENIED"` + known tenant `source.namespace` + unresolved
+`destination.namespace` still emits an event, with `peer_namespace: null` (never fabricated)
+and `resource_type: "network-flow-egress-denied"` so it's distinguishable downstream from a
+fully-resolved cross-tenant flow. Ingress-side denies (evaluated at the destination endpoint,
+which by definition has already resolved its own identity) are unaffected and get full
+`peer_namespace` resolution through the normal path.

@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # for `monitors.common`
-from common import Event, JsonlSink, now_iso  # noqa: E402
+from common import Event, JsonlSink, now_iso, tenant_namespaces  # noqa: E402
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 DEFAULT_AUDIT_LOG = ROOT_DIR / "infra" / "kind" / "audit" / "audit.log"
@@ -30,23 +30,6 @@ DEFAULT_OUTPUT = Path(__file__).resolve().parent / "events.jsonl"
 
 SERVICEACCOUNT_RE = re.compile(r"^system:serviceaccount:(?P<namespace>[^:]+):(?P<name>.+)$")
 NODE_AUDIT_LOG_PATH = "/etc/kubernetes/audit/audit.log"
-
-
-def tenant_namespaces() -> set[str]:
-    """Namespaces labeled `tenant` (infra/namespaces/*/namespace.yaml) — only cross-namespace
-    access *between two of these* counts as a candidate isolation violation. Without this, the
-    monitor would also flag entirely legitimate cross-namespace system traffic (e.g. anything
-    touching kube-system)."""
-    try:
-        result = subprocess.run(
-            ["kubectl", "get", "namespaces", "-l", "tenant", "-o", "json"],
-            capture_output=True, text=True, check=True, timeout=10,
-        )
-        data = json.loads(result.stdout)
-        return {ns["metadata"]["name"] for ns in data["items"]}
-    except Exception as exc:  # kubectl not reachable yet, etc. — caller retries later
-        print(f"[control-plane-monitor] warning: could not list tenant namespaces: {exc}", file=sys.stderr)
-        return set()
 
 
 def _try_fix_permissions(container: str) -> None:

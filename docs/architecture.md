@@ -89,9 +89,12 @@ just elevated self-usage.
 }
 ```
 
-Network-flow events don't natively carry ServiceAccount identity (only pod/namespace/labels),
-so `network-flow-monitor` enriches flows via a Kubernetes-client Pod watch that maintains a
-live pod → ServiceAccount lookup table.
+Network-flow events don't carry ServiceAccount identity as a first-class field, but Cilium
+already bakes it into each endpoint's identity labels as
+`k8s:io.cilium.k8s.policy.serviceaccount=<name>` — confirmed against live flow JSON from this
+cluster's hubble-relay — so `network-flow-monitor` extracts it directly from the flow's own
+`source`/`destination` labels instead of standing up a separate Kubernetes-client Pod watch
+purely for that lookup.
 
 ## Classification rules (deterministic, not ML)
 
