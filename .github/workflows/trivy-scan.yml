@@ -15,7 +15,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   scan:
@@ -30,6 +29,10 @@ jobs:
       # vulnerability with a known fix available. This is the "basic CI/CD security gate"
       # from the proposal — a static, pre-deploy check, independent of everything the
       # in-cluster monitors do at runtime.
+      #
+      # No SARIF-upload-to-Security-tab step here: that requires GitHub Advanced Security,
+      # which isn't available for private repos without a paid plan — the table-format gate
+      # above is the actual requirement (fail the build), and doesn't need it.
       - name: Trivy vulnerability gate (HIGH/CRITICAL)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -38,23 +41,3 @@ jobs:
           ignore-unfixed: true
           exit-code: "1"
           format: table
-
-      # Always produce a SARIF report for the GitHub Security tab, even when the gate above
-      # already failed the job — `if: always()` so a failed gate doesn't hide the detail of
-      # what failed it.
-      - name: Trivy SARIF report
-        if: always()
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: tenant-lab/notes-api:${{ github.sha }}
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: "0"
-          format: sarif
-          output: trivy-results.sarif
-
-      - name: Upload SARIF to GitHub Security tab
-        if: always()
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: trivy-results.sarif
