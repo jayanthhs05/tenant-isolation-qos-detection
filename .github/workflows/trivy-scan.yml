@@ -1,0 +1,60 @@
+name: Trivy image scan
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - ".github/workflows/trivy-scan.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/**"
+      - ".github/workflows/trivy-scan.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build demo app image
+        run: docker build -t tenant-lab/notes-api:${{ github.sha }} app/
+
+      # Gate: fails the job (and therefore the PR check) on any HIGH or CRITICAL
+      # vulnerability with a known fix available. This is the "basic CI/CD security gate"
+      # from the proposal — a static, pre-deploy check, independent of everything the
+      # in-cluster monitors do at runtime.
+      - name: Trivy vulnerability gate (HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: tenant-lab/notes-api:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+
+      # Always produce a SARIF report for the GitHub Security tab, even when the gate above
+      # already failed the job — `if: always()` so a failed gate doesn't hide the detail of
+      # what failed it.
+      - name: Trivy SARIF report
+        if: always()
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: tenant-lab/notes-api:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "0"
+          format: sarif
+          output: trivy-results.sarif
+
+      - name: Upload SARIF to GitHub Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
