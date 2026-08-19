@@ -37,6 +37,33 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def dwell_with_progress(seconds: float, bar_width: int = 24) -> None:
+    """Sleeps for `seconds`, showing a live countdown — the dwell is the single longest silent
+    stretch of a scenario run (up to 20s for fairness scenarios), so this is what actually
+    makes a sweep feel like it's doing something rather than hanging. Falls back to a plain
+    line printed every 2s when stdout isn't a terminal (e.g. redirected to a log file), where
+    carriage-return redraws would just show up as unreadable clutter."""
+    interactive = sys.stdout.isatty()
+    start = time.monotonic()
+    last_plain_print = -999.0
+    while True:
+        elapsed = min(time.monotonic() - start, seconds)
+        if interactive:
+            filled = int(bar_width * elapsed / seconds) if seconds else bar_width
+            bar = "#" * filled + "-" * (bar_width - filled)
+            sys.stdout.write(f"\r[run_scenario] dwelling [{bar}] {elapsed:4.1f}s / {seconds:.1f}s")
+            sys.stdout.flush()
+        elif elapsed - last_plain_print >= 2.0 or elapsed >= seconds:
+            print(f"[run_scenario] dwelling: {elapsed:.1f}s / {seconds:.1f}s")
+            last_plain_print = elapsed
+        if elapsed >= seconds:
+            break
+        time.sleep(min(0.2, seconds - elapsed))
+    if interactive:
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+
+
 def load_metadata(scenario_dir: Path) -> dict:
     metadata_path = scenario_dir / "metadata.yaml"
     if not metadata_path.exists():
@@ -80,7 +107,7 @@ def main() -> int:
     try:
         run_script(scenario_dir, metadata.get("inject", "inject.sh"))
         print(f"[run_scenario] injected, dwelling for {dwell_seconds}s")
-        time.sleep(dwell_seconds)
+        dwell_with_progress(dwell_seconds)
     finally:
         injection_end_ts = now_iso()
         try:

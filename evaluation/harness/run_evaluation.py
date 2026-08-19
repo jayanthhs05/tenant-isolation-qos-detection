@@ -70,10 +70,50 @@ def load_dwell_seconds(scenario_dir: Path) -> float:
     return float(metadata.get("dwell_seconds", 10))
 
 
+def _dwell_with_progress(seconds: float, label: str, bar_width: int = 24) -> None:
+    """Same live-countdown behavior as scenarios/driver/run_scenario.py's dwell_with_progress
+    — kept as its own small copy rather than a shared import, since the two scripts don't
+    otherwise share a module and this is the only piece either needs from the other."""
+    interactive = sys.stdout.isatty()
+    start = time.monotonic()
+    last_plain_print = -999.0
+    while True:
+        elapsed = min(time.monotonic() - start, seconds)
+        if interactive:
+            filled = int(bar_width * elapsed / seconds) if seconds else bar_width
+            bar = "#" * filled + "-" * (bar_width - filled)
+            sys.stdout.write(f"\r[run_evaluation] {label} [{bar}] {elapsed:4.1f}s / {seconds:.1f}s")
+            sys.stdout.flush()
+        elif elapsed - last_plain_print >= 2.0 or elapsed >= seconds:
+            print(f"[run_evaluation] {label}: {elapsed:.1f}s / {seconds:.1f}s")
+            last_plain_print = elapsed
+        if elapsed >= seconds:
+            break
+        time.sleep(min(0.2, seconds - elapsed))
+    if interactive:
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+
+
+def _format_duration(seconds: float) -> str:
+    minutes, secs = divmod(max(0, int(seconds)), 60)
+    return f"{minutes}m{secs:02d}s"
+
+
+def print_overall_progress(completed: int, total: int, sweep_start: float, bar_width: int = 30) -> None:
+    elapsed = time.monotonic() - sweep_start
+    pace = elapsed / completed if completed else 0.0
+    eta = pace * (total - completed)
+    fraction = completed / total if total else 1.0
+    filled = int(bar_width * fraction)
+    bar = "#" * filled + "-" * (bar_width - filled)
+    print(f"[run_evaluation] overall: [{bar}] {completed}/{total} ({fraction:.0%})  "
+          f"elapsed {_format_duration(elapsed)}  ETA {_format_duration(eta)}")
+
+
 def run_negative_control(window_seconds: float, output_path: Path) -> None:
-    print(f"[run_evaluation] negative-control window: sleeping {window_seconds}s with no injection")
     start_ts = now_iso()
-    time.sleep(window_seconds)
+    _dwell_with_progress(window_seconds, "negative-control window (no injection)")
     end_ts = now_iso()
     record = {
         "window_type": "negative-control",
@@ -132,6 +172,7 @@ def main() -> int:
         print("[run_evaluation] --dry-run: not executing anything")
         return 0
 
+    sweep_start = time.monotonic()
     for i, (kind, scenario_dir) in enumerate(plan, start=1):
         print(f"\n[run_evaluation] === run {i}/{len(plan)}: {kind}"
               f"{' ' + str(scenario_dir.relative_to(ROOT_DIR)) if scenario_dir else ''} ===")
@@ -144,6 +185,7 @@ def main() -> int:
                       file=sys.stderr)
         else:
             run_negative_control(args.negative_control_seconds, Path(args.negative_controls_output))
+        print_overall_progress(i, len(plan), sweep_start)
 
     print(f"\n[run_evaluation] sweep complete. ground truth: {args.ground_truth}, "
           f"negative controls: {args.negative_controls_output}")

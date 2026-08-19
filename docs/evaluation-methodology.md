@@ -89,6 +89,12 @@ reproducible run order instead of grouping by scenario):
 python3 evaluation/harness/run_evaluation.py
 ```
 
+Run it in a real terminal (not redirected to a file) to get a live view: a countdown bar during
+each scenario's dwell and each negative-control window (the longest silent stretches
+otherwise), plus an overall `i/total` progress bar with elapsed time and ETA after every run.
+Piped or redirected output falls back to a plain progress line printed every couple of seconds
+instead of the carriage-return redraw, so log files stay readable.
+
 This writes `evaluation/results/ground_truth.jsonl` and
 `evaluation/results/negative_controls.jsonl` as it goes — safe to `Ctrl+C` and resume later
 with a fresh invocation (it appends, doesn't overwrite; ground truth from a partial run is
