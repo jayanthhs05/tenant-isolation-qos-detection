@@ -134,6 +134,37 @@ def test_same_namespace_traffic_is_not_flagged():
     print("PASS: same-namespace access produces no alert")
 
 
+def test_pressure_only_ablation_flags_without_victim():
+    """evaluation/'s "pressure-only" detector-config ablation (require_qos_breach=False): the
+    naive baseline that fusion's real rule is designed to improve on. Pressure alone must
+    still produce an alert in this mode — with no victim identified — even with no QoS-breach
+    evidence anywhere, which is the opposite of the default-mode behavior tested above."""
+    events = [
+        ev("resource", "2026-08-19T10:00:00+00:00", "tenant-a",
+           resource_type="pod-cpu-throttle", verb="throttled", principal="notes-api-a"),
+    ]
+    alerts = classify_events(events, require_qos_breach=False)
+    assert len(alerts) == 1, alerts
+    assert alerts[0].category == "fairness"
+    assert alerts[0].tenants == ("tenant-a", None)
+    print("PASS: pressure-only ablation flags a noisy tenant with no victim identified")
+
+
+def test_pressure_only_ablation_does_not_pair_with_isolation():
+    """A pressure-only alert (single-tenant pair) must never accidentally merge into "both"
+    with an unrelated isolation alert just because they overlap in time."""
+    events = [
+        ev("control-plane", "2026-08-19T10:00:00+00:00", "tenant-a", "tenant-b",
+           resource_type="pods", verb="get", principal="system:serviceaccount:tenant-a:app"),
+        ev("resource", "2026-08-19T10:00:02+00:00", "tenant-a",
+           resource_type="pod-cpu-throttle", verb="throttled", principal="notes-api-a"),
+    ]
+    alerts = classify_events(events, require_qos_breach=False)
+    categories = sorted(a.category for a in alerts)
+    assert categories == ["fairness", "isolation"], categories
+    print("PASS: pressure-only ablation stays separate from an overlapping isolation alert")
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for test in tests:

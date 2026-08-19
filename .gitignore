@@ -14,6 +14,7 @@ node_modules/
 # evaluation run output (large / regenerable)
 evaluation/results/*.jsonl
 evaluation/results/*.csv
+evaluation/results/*.json
 !evaluation/results/.gitkeep
 
 # monitor / fusion / scenario runtime output (regenerable, see monitors/common/sink.py)

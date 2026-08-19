@@ -75,6 +75,14 @@ def _ranges_overlap(a: tuple[datetime, datetime], b: tuple[datetime, datetime], 
     return a_start - slack <= b_end and b_start - slack <= a_end
 
 
+def _pair_to_tenants(pair: frozenset) -> tuple[str, str | None]:
+    """frozenset of 1 or 2 tenant names -> a sorted (tenant, tenant-or-None) tuple. A
+    single-element pair shows up for the pressure-only fairness ablation (evaluation/), where
+    a noisy tenant is flagged with no specific victim identified."""
+    ordered = sorted(pair)
+    return (ordered[0], ordered[1] if len(ordered) > 1 else None)
+
+
 def _make_alert(category: str, tenants: tuple[str, str | None], clusters: list[list[Event]]) -> Alert:
     all_events = [e for cluster in clusters for e in cluster]
     first_observed = min(_parse_ts(e.timestamp) for e in all_events)
@@ -89,7 +97,17 @@ def _make_alert(category: str, tenants: tuple[str, str | None], clusters: list[l
     )
 
 
-def classify_events(events: list[Event], window_seconds: float = CORRELATION_WINDOW_SECONDS) -> list[Alert]:
+def classify_events(
+    events: list[Event],
+    window_seconds: float = CORRELATION_WINDOW_SECONDS,
+    require_qos_breach: bool = True,
+) -> list[Alert]:
+    """`require_qos_breach=False` is the evaluation harness's "pressure-only" detector-config
+    ablation (evaluation/): a naive detector that treats elevated CPU/memory alone as
+    sufficient fairness evidence, without correlating it against an independent victim-side
+    QoS breach. It exists to be *compared against* the real rule below (require_qos_breach=True,
+    the default and the only mode any monitor/CLI in this project actually uses), quantifying
+    why that correlation requirement exists rather than just asserting it in prose."""
     isolation_events = [
         e for e in events
         if e.source in ("control-plane", "network-flow")
@@ -126,18 +144,25 @@ def classify_events(events: list[Event], window_seconds: float = CORRELATION_WIN
 
     # each entry: (unordered tenant pair, time range, contributing event clusters)
     fairness_alerts: list[tuple[frozenset, tuple[datetime, datetime], list[list[Event]]]] = []
-    for noisy_tenant, p_clusters in pressure_clusters.items():
-        for victim_tenant, v_clusters in qos_clusters.items():
-            if victim_tenant == noisy_tenant:
-                continue
+    if require_qos_breach:
+        for noisy_tenant, p_clusters in pressure_clusters.items():
+            for victim_tenant, v_clusters in qos_clusters.items():
+                if victim_tenant == noisy_tenant:
+                    continue
+                for p_cluster in p_clusters:
+                    p_range = _cluster_range(p_cluster)
+                    for v_cluster in v_clusters:
+                        v_range = _cluster_range(v_cluster)
+                        if _ranges_overlap(p_range, v_range, window_seconds):
+                            pair = frozenset({noisy_tenant, victim_tenant})
+                            combined_range = (min(p_range[0], v_range[0]), max(p_range[1], v_range[1]))
+                            fairness_alerts.append((pair, combined_range, [p_cluster, v_cluster]))
+    else:
+        # Ablation baseline: pressure alone is "sufficient", no victim pairing at all —
+        # single-element pair, no peer tenant identified.
+        for noisy_tenant, p_clusters in pressure_clusters.items():
             for p_cluster in p_clusters:
-                p_range = _cluster_range(p_cluster)
-                for v_cluster in v_clusters:
-                    v_range = _cluster_range(v_cluster)
-                    if _ranges_overlap(p_range, v_range, window_seconds):
-                        pair = frozenset({noisy_tenant, victim_tenant})
-                        combined_range = (min(p_range[0], v_range[0]), max(p_range[1], v_range[1]))
-                        fairness_alerts.append((pair, combined_range, [p_cluster, v_cluster]))
+                fairness_alerts.append((frozenset({noisy_tenant}), _cluster_range(p_cluster), [p_cluster]))
 
     # --- rule 3: merge an isolation alert and a fairness alert into "both" when they share a
     # tenant pair and overlap in time; elevated CPU alone (a fairness alert with no matching
@@ -151,19 +176,16 @@ def classify_events(events: list[Event], window_seconds: float = CORRELATION_WIN
             if j in used_fairness:
                 continue
             if i_pair == f_pair and _ranges_overlap(i_range, f_range, window_seconds):
-                tenants = tuple(sorted(i_pair))
-                merged.append(_make_alert("both", (tenants[0], tenants[1]), i_clusters + f_clusters))
+                merged.append(_make_alert("both", _pair_to_tenants(i_pair), i_clusters + f_clusters))
                 used_isolation.add(i)
                 used_fairness.add(j)
                 break
 
     for i, (pair, _, clusters) in enumerate(isolation_alerts):
         if i not in used_isolation:
-            tenants = tuple(sorted(pair))
-            merged.append(_make_alert("isolation", (tenants[0], tenants[1]), clusters))
+            merged.append(_make_alert("isolation", _pair_to_tenants(pair), clusters))
     for j, (pair, _, clusters) in enumerate(fairness_alerts):
         if j not in used_fairness:
-            tenants = tuple(sorted(pair))
-            merged.append(_make_alert("fairness", (tenants[0], tenants[1]), clusters))
+            merged.append(_make_alert("fairness", _pair_to_tenants(pair), clusters))
 
     return merged
