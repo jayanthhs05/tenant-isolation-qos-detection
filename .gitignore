@@ -22,6 +22,9 @@ monitors/*/events.jsonl
 fusion/alerts.jsonl
 scenarios/ground_truth.jsonl
 
+# scripts/up.sh monitor logs + pidfiles
+/.run/
+
 # kubeconfig / kind artifacts
 kubeconfig*
 *.kubeconfig

@@ -9,9 +9,9 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN_DIR="${ROOT_DIR}/bin"
 export PATH="${BIN_DIR}:${PATH}"
 
-CLUSTER_NAME="tenant-lab"
-IMAGE="tenant-lab/notes-api:dev"
-TENANTS=(tenant-a tenant-b tenant-c)
+CLUSTER_NAME="${CLUSTER_NAME:-tenant-lab}"
+IMAGE="${IMAGE:-tenant-lab/notes-api:dev}"
+read -ra TENANTS <<< "${TENANTS:-tenant-a tenant-b tenant-c}"
 
 echo ">>> Building ${IMAGE}"
 docker build -t "${IMAGE}" -f "${ROOT_DIR}/app/Dockerfile" "${ROOT_DIR}/app/"

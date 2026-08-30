@@ -8,8 +8,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN_DIR="${ROOT_DIR}/bin"
 export PATH="${BIN_DIR}:${PATH}"
 
-CILIUM_CHART_VERSION="1.16.2"
-CLUSTER_NAME="tenant-lab"
+CILIUM_CHART_VERSION="${CILIUM_CHART_VERSION:-1.16.2}"
+CLUSTER_NAME="${CLUSTER_NAME:-tenant-lab}"
 
 for c in kubectl helm cilium hubble; do
   if ! command -v "$c" >/dev/null 2>&1; then

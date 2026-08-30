@@ -8,7 +8,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN_DIR="${ROOT_DIR}/bin"
 export PATH="${BIN_DIR}:${PATH}"
 
-CLUSTER_NAME="tenant-lab"
+CLUSTER_NAME="${CLUSTER_NAME:-tenant-lab}"
 AUDIT_HOST_DIR="${ROOT_DIR}/infra/kind/audit"
 RESOLV_CLEAN_PATH="${ROOT_DIR}/infra/kind/resolv-clean.conf"
 
