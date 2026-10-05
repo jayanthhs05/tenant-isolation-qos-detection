@@ -167,3 +167,39 @@ traffic — namespaceSelector-based policies only take effect for traffic that a
 to a real pod identity (direct pod IP, or traffic Cilium itself NAT's under
 `kubeProxyReplacement: true`). Worth flagging explicitly in the Phase 12 write-up as a
 configuration-specific caveat, not a general NetworkPolicy limitation.
+
+## 15. Fairness scenarios never degraded the victim, so fused fairness detection scored 0
+**Status:** Resolved.
+The first full sweep scored `fused-fairness` at 0/15 recall while the `pressure-only` ablation
+got 7/15. The fusion rule was correct; its required evidence never existed. Replaying the k6
+output showed the victim's (tenant-b) p95 latency was ~3.6 ms both before and during every
+fairness injection, so `qos_monitor.py` never emitted a `victim-qos-latency` breach. Cause: the
+host has 16 cores and the hogs were CFS-limited to 200m–1.5 cores, so they could not contend
+with a trivial `/healthz` handler. Four fixes, none of which touch the fusion rule itself:
+1. `scripts/constrain-node.sh` (called from `up.sh`) pins the kind worker node to a 2-CPU
+   cpuset, so a handful of CFS-limited hog pods can actually saturate it.
+2. `scenarios/fairness/lib.sh`: hogs are scheduled on the node running the victim's pod (before
+   this they landed there only by scheduler luck) and carry an `app=noisy-hog` label for revert.
+   Scenario 01 runs 6×200m hogs, 02 runs 6 memory-ramping pods that keep rewriting their working
+   set, 03 runs a multi-process hog (a single-threaded loop can never reach 85% of a 1500m
+   limit, so resource-monitor emitted no pressure events for it).
+3. `qos_monitor.py` was edge-triggered (one event per breach onset). With contention lingering
+   across back-to-back runs it emitted a single event for the whole sweep. It now re-emits every
+   `--reemit-seconds` (5) while the breach is sustained, and the harness adds a
+   `--cooldown-seconds` (20) gap after each scenario run so victim latency recovers.
+4. Validation: victim p95 went from ~5.7 ms baseline to 17–95 ms during injections (≥3×, over
+   the 1.5× breach ratio).
+Caveat for the write-up: this is deliberate contention engineering. On an unconstrained
+16-core host these hogs are not a real noisy-neighbor problem, which is itself a finding about
+CFS limits protecting co-located tenants.
+
+## 16. Evaluation tooling bugs found while closing #15
+**Status:** Resolved.
+- `mean_correlation_overhead_seconds` was `Alert.fused_at - first_observed`, but `fused_at` is
+  stamped when the batch is scored, so it measured "how long ago the event happened" (~330 s),
+  not fusion overhead. Replaced by `classification_runtime_seconds` (measured) in
+  `compute_metrics.py`.
+- `scripts/install-tools.sh` version checks used `cmd | grep -q`; `grep -q` exits on first match,
+  the upstream command gets SIGPIPE, and under `pipefail` the check intermittently reported
+  "not installed", triggering a re-download that could abort `scripts/up.sh`. Checks now read
+  the whole stream, and a failed download keeps an existing binary.

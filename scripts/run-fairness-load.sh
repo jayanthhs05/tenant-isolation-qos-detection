@@ -82,7 +82,7 @@ echo $! > "${LOG_DIR}/k6-fairness-load.pid"
 disown
 
 echo ">>> Starting qos_monitor.py (breach-ratio=${BREACH_RATIO}, baseline-seconds=${BASELINE_SECONDS})"
-nohup python3 "${ROOT_DIR}/monitors/resource-monitor/qos_monitor.py" \
+nohup python3 -u "${ROOT_DIR}/monitors/resource-monitor/qos_monitor.py" \
   --k6-output "${K6_OUTPUT}" --tenant "${TENANT}" \
   --breach-ratio "${BREACH_RATIO}" --baseline-seconds "${BASELINE_SECONDS}" \
   >"${LOG_DIR}/qos-monitor-fairness-load.log" 2>&1 &

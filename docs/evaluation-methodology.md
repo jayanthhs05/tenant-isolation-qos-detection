@@ -1,12 +1,12 @@
 # Evaluation Methodology — Runbook
 
-Phase 11 is fully implemented (`evaluation/harness/run_evaluation.py`,
+Phase 11 is implemented (`evaluation/harness/run_evaluation.py`,
 `evaluation/metrics/compute_metrics.py`, `load/k6/tenant-load-script.js`,
-`monitors/resource-monitor/qos_monitor.py`) but has **not been run as a full sweep** — the
-full run takes about 12 minutes of live cluster time and was deliberately left for whoever has
-that window free, rather than run speculatively. Everything below has been smoke-tested at
-small scale (a handful of scenario runs, synthetic event fixtures for the scoring math) — see
-the Phase 10/11 commit messages for what was specifically verified live.
+`monitors/resource-monitor/qos_monitor.py`) and the full sweep has been run (2026-10-05, results
+in `docs/project-report.md` §6). It takes roughly 35 minutes of live cluster time including the
+20 s cooldown after each run (`--cooldown-seconds`), which keeps lingering contention from one
+fairness run from bleeding into the next. Fairness scenarios need the worker node pinned to a small
+cpuset (`scripts/constrain-node.sh`, run by `scripts/up.sh`) — see `docs/risk-log.md` #15.
 
 ## What "full sweep" means here
 
@@ -19,8 +19,8 @@ Unlike the original proposal's "scenario x detector-config x repetitions" framin
 suggest, **detector configs don't need separate scenario runs.** `run_evaluation.py` only
 executes each scenario once per repetition; `compute_metrics.py` re-classifies the same
 collected event logs under every detector config afterward (it's just a source filter + one
-boolean flag on `classify_events`, see `fusion/src/classify.py`). So the full sweep is ~12
-minutes total, not ~12 minutes x 5 configs.
+boolean flag on `classify_events`, see `fusion/src/classify.py`). So the full sweep is a single
+pass, not one pass per config.
 
 **Detector configs scored:**
 - Isolation track: `control-plane-only`, `network-flow-only`, `fused-isolation`
@@ -82,7 +82,7 @@ Give this ~15s before starting the sweep so `qos_monitor.py`'s baseline window
 python3 evaluation/harness/run_evaluation.py --dry-run
 ```
 
-**4. Run the full sweep** (~12 minutes; add `--shuffle --seed N` for a randomized,
+**4. Run the full sweep** (~35 minutes; add `--shuffle --seed N` for a randomized,
 reproducible run order instead of grouping by scenario):
 
 ```bash

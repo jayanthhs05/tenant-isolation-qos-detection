@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse
 import json
 import statistics
+import time
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -115,7 +116,9 @@ def score_config(name: str, config: dict, events: list[Event], ground_truth: lis
                   negative_controls: list[dict]) -> dict:
     track = config["track"]
     filtered = [e for e in events if config["sources"] is None or e.source in config["sources"]]
+    t0 = time.perf_counter()
     alerts = classify_events(filtered, require_qos_breach=config["require_qos_breach"])
+    classify_runtime = time.perf_counter() - t0
     track_alerts = [a for a in alerts if alert_matches_track(a, track)]
 
     track_gt = [gt for gt in ground_truth if gt.get("category") == track]
@@ -123,7 +126,6 @@ def score_config(name: str, config: dict, events: list[Event], ground_truth: lis
     tp = 0
     fn = 0
     latencies = []
-    correlation_overheads = []
     matched_alert_ids: set[str] = set()
     for gt in track_gt:
         candidates = [a for a in track_alerts if alert_matches_ground_truth(a, gt, track)]
@@ -132,7 +134,6 @@ def score_config(name: str, config: dict, events: list[Event], ground_truth: lis
             best = min(candidates, key=lambda a: _parse_ts(a.first_observed))
             matched_alert_ids.add(best.alert_id)
             latencies.append((_parse_ts(best.first_observed) - _parse_ts(gt["injection_start_ts"])).total_seconds())
-            correlation_overheads.append((_parse_ts(best.fused_at) - _parse_ts(best.first_observed)).total_seconds())
         else:
             fn += 1
 
@@ -171,7 +172,11 @@ def score_config(name: str, config: dict, events: list[Event], ground_truth: lis
         "false_positive_rate": fpr,
         "mean_detection_latency_seconds": statistics.mean(latencies) if latencies else None,
         "median_detection_latency_seconds": statistics.median(latencies) if latencies else None,
-        "mean_correlation_overhead_seconds": statistics.mean(correlation_overheads) if correlation_overheads else None,
+        # wall-clock time classify_events took over this config's whole event set. (Alert.fused_at
+        # is stamped when the batch is scored, so fused_at - first_observed would just measure how
+        # long ago the event happened, not fusion overhead.)
+        "classification_runtime_seconds": classify_runtime,
+        "events_classified": len(filtered),
     }
 
 

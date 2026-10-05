@@ -132,6 +132,9 @@ def main() -> int:
     parser.add_argument("--repetitions", type=int, default=5)
     parser.add_argument("--negative-control-windows", type=int, default=5)
     parser.add_argument("--negative-control-seconds", type=float, default=20.0)
+    parser.add_argument("--cooldown-seconds", type=float, default=20.0,
+                         help="idle gap after each scenario run so the victim's latency recovers before the next "
+                              "window (otherwise lingering contention from one run bleeds into the next)")
     parser.add_argument("--ground-truth", default=str(DEFAULT_GROUND_TRUTH))
     parser.add_argument("--negative-controls-output", default=str(DEFAULT_NEGATIVE_CONTROLS))
     parser.add_argument("--shuffle", action="store_true",
@@ -185,6 +188,8 @@ def main() -> int:
                       file=sys.stderr)
         else:
             run_negative_control(args.negative_control_seconds, Path(args.negative_controls_output))
+        if kind == "scenario" and i < len(plan) and args.cooldown_seconds > 0:
+            _dwell_with_progress(args.cooldown_seconds, "cooldown")
         print_overall_progress(i, len(plan), sweep_start)
 
     print(f"\n[run_evaluation] sweep complete. ground truth: {args.ground_truth}, "

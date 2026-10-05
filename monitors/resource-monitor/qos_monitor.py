@@ -79,6 +79,9 @@ def main() -> int:
     parser.add_argument("--rolling-window-seconds", type=float, default=10.0)
     parser.add_argument("--breach-ratio", type=float, default=1.5)
     parser.add_argument("--check-interval-seconds", type=float, default=2.0)
+    parser.add_argument("--reemit-seconds", type=float, default=5.0,
+                         help="while a breach is sustained, re-emit an event this often so fusion's "
+                              "time-window correlation sees the whole breach, not just its onset")
     args = parser.parse_args()
 
     print(f"[qos-monitor] tailing {args.k6_output} for tenant={args.tenant}")
@@ -89,7 +92,8 @@ def main() -> int:
     baseline_deadline = time.monotonic() + args.baseline_seconds
     rolling: deque[tuple[float, float]] = deque()  # (monotonic_ts, value_ms)
     last_check = time.monotonic()
-    breached = False  # edge-triggered: alert on breach onset only, not every check while sustained
+    breached = False
+    last_emit = 0.0  # monotonic time of the last emitted breach event
 
     with JsonlSink(args.output) as sink:
         for line in follow(Path(args.k6_output)):
@@ -133,7 +137,8 @@ def main() -> int:
             ratio = rolling_p95 / baseline_p95 if baseline_p95 else 0.0
             is_breach = ratio >= args.breach_ratio
 
-            if is_breach and not breached:
+            if is_breach and (not breached or now_mono - last_emit >= args.reemit_seconds):
+                last_emit = now_mono
                 event = Event(
                     source="resource",
                     timestamp=now_iso(),

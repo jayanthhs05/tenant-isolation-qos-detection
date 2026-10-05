@@ -30,7 +30,7 @@ K6_VERSION="v2.2.0"
 log() { echo ">>> $*"; }
 
 install_kubectl() {
-  if [ -x ./kubectl ] && ./kubectl version --client -o json 2>/dev/null | grep -q "${KUBECTL_VERSION}"; then
+  if [ -x ./kubectl ] && ./kubectl version --client -o json 2>/dev/null | grep "${KUBECTL_VERSION}" >/dev/null; then
     log "kubectl ${KUBECTL_VERSION} already installed"; return
   fi
   log "Installing kubectl ${KUBECTL_VERSION}"
@@ -39,7 +39,7 @@ install_kubectl() {
 }
 
 install_kind() {
-  if [ -x ./kind ] && ./kind version 2>/dev/null | grep -q "${KIND_VERSION}"; then
+  if [ -x ./kind ] && ./kind version 2>/dev/null | grep "${KIND_VERSION}" >/dev/null; then
     log "kind ${KIND_VERSION} already installed"; return
   fi
   log "Installing kind ${KIND_VERSION}"
@@ -48,7 +48,7 @@ install_kind() {
 }
 
 install_helm() {
-  if [ -x ./helm ] && ./helm version --short 2>/dev/null | grep -q "${HELM_VERSION}"; then
+  if [ -x ./helm ] && ./helm version --short 2>/dev/null | grep "${HELM_VERSION}" >/dev/null; then
     log "helm ${HELM_VERSION} already installed"; return
   fi
   log "Installing helm ${HELM_VERSION}"
@@ -60,31 +60,43 @@ install_helm() {
 }
 
 install_cilium_cli() {
-  if [ -x ./cilium ] && ./cilium version --client 2>/dev/null | grep -q "${CILIUM_CLI_VERSION#v}"; then
+  if [ -x ./cilium ] && ./cilium version --client 2>/dev/null | grep "${CILIUM_CLI_VERSION#v}" >/dev/null; then
     log "cilium CLI ${CILIUM_CLI_VERSION} already installed"; return
   fi
   log "Installing cilium CLI ${CILIUM_CLI_VERSION}"
   tmp="$(mktemp -d)"
-  curl -fsSL "https://github.com/cilium/cilium-cli/releases/download/${CILIUM_CLI_VERSION}/cilium-${OS}-${GOARCH}.tar.gz" | tar -xz -C "${tmp}"
+  if ! curl -fsSL "https://github.com/cilium/cilium-cli/releases/download/${CILIUM_CLI_VERSION}/cilium-${OS}-${GOARCH}.tar.gz" | tar -xz -C "${tmp}"; then
+    rm -rf "${tmp}"
+    if [ -x ./cilium ]; then
+      log "WARNING: download failed (offline?); keeping the existing cilium binary"; return
+    fi
+    return 1
+  fi
   mv "${tmp}/cilium" ./cilium
   chmod +x cilium
   rm -rf "${tmp}"
 }
 
 install_hubble_cli() {
-  if [ -x ./hubble ] && ./hubble version 2>/dev/null | grep -q "${HUBBLE_VERSION#v}"; then
+  if [ -x ./hubble ] && ./hubble version 2>/dev/null | grep "${HUBBLE_VERSION#v}" >/dev/null; then
     log "hubble CLI ${HUBBLE_VERSION} already installed"; return
   fi
   log "Installing hubble CLI ${HUBBLE_VERSION}"
   tmp="$(mktemp -d)"
-  curl -fsSL "https://github.com/cilium/hubble/releases/download/${HUBBLE_VERSION}/hubble-${OS}-${GOARCH}.tar.gz" | tar -xz -C "${tmp}"
+  if ! curl -fsSL "https://github.com/cilium/hubble/releases/download/${HUBBLE_VERSION}/hubble-${OS}-${GOARCH}.tar.gz" | tar -xz -C "${tmp}"; then
+    rm -rf "${tmp}"
+    if [ -x ./hubble ]; then
+      log "WARNING: download failed (offline?); keeping the existing hubble binary"; return
+    fi
+    return 1
+  fi
   mv "${tmp}/hubble" ./hubble
   chmod +x hubble
   rm -rf "${tmp}"
 }
 
 install_kube_bench() {
-  if [ -x ./kube-bench ] && [ -d ./kube-bench-cfg ] && ./kube-bench version 2>/dev/null | grep -q "${KUBE_BENCH_VERSION}"; then
+  if [ -x ./kube-bench ] && [ -d ./kube-bench-cfg ] && ./kube-bench version 2>/dev/null | grep "${KUBE_BENCH_VERSION}" >/dev/null; then
     log "kube-bench ${KUBE_BENCH_VERSION} already installed"; return
   fi
   log "Installing kube-bench ${KUBE_BENCH_VERSION}"
@@ -102,7 +114,7 @@ install_kube_bench() {
 }
 
 install_trivy() {
-  if [ -x ./trivy ] && ./trivy --version 2>/dev/null | grep -q "${TRIVY_VERSION}"; then
+  if [ -x ./trivy ] && ./trivy --version 2>/dev/null | grep "${TRIVY_VERSION}" >/dev/null; then
     log "trivy ${TRIVY_VERSION} already installed"; return
   fi
   log "Installing trivy ${TRIVY_VERSION}"
@@ -116,7 +128,7 @@ install_trivy() {
 }
 
 install_k6() {
-  if [ -x ./k6 ] && ./k6 version 2>/dev/null | grep -q "${K6_VERSION#v}"; then
+  if [ -x ./k6 ] && ./k6 version 2>/dev/null | grep "${K6_VERSION#v}" >/dev/null; then
     log "k6 ${K6_VERSION} already installed"; return
   fi
   log "Installing k6 ${K6_VERSION}"

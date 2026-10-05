@@ -271,14 +271,70 @@ Objective 1's results establish two things the remaining objectives build direct
   to provide, and what Objective 6's evaluation harness quantifies against this same static
   baseline as the comparison point.
 
-## 6. Status and Next Steps
+## 6. Results of Objectives 2–6: Full Evaluation Sweep
 
-At the time of this report, Objectives 1–6 have all been implemented (control-plane monitor,
-network-flow monitor, resource/fairness monitor, fusion and classification layer, CI/CD
-Trivy gate, and the scenario-injection and evaluation-harness code) and smoke-tested at small
-scale against live cluster events. The full quantitative evaluation sweep (all 8 built
-scenarios × 5 repetitions, plus negative-control windows, scored for precision, recall,
-false-positive rate, and detection latency per detector configuration — see
-`docs/evaluation-methodology.md`) has not yet been executed as a complete run; that full
-metrics table, and the corresponding results for Objectives 2 through 6, are reported
-separately once that run is captured.
+Objectives 2–6 (control-plane monitor, network-flow monitor, resource/fairness monitor, fusion and
+classification layer, CI/CD Trivy gate, scenario libraries and evaluation harness) are implemented.
+The full sweep was run on 2026-10-05 with `scripts/full-sweep.sh --shuffle --seed 1`: all 8 built
+scenarios × 5 repetitions (25 isolation runs, 15 fairness runs) plus 5 negative-control idle
+windows, with k6 load against tenant-b as the independent victim-side QoS signal. The worker node
+is pinned to a 2-CPU cpuset (`scripts/constrain-node.sh`) so fairness scenarios create real
+contention (see §6.2). Raw output: `evaluation/results/{ground_truth.jsonl,metrics.json}`.
+
+| Detector config | Track | TP | FN | FP (neg. controls) | Precision | Recall | Mean latency (s) | Median latency (s) |
+|---|---|---|---|---|---|---|---|---|
+| control-plane-only | isolation | 15 | 10 | 0 | 1.00 | 0.60 | 0.26 | 0.28 |
+| network-flow-only | isolation | 10 | 15 | 0 | 1.00 | 0.40 | 0.93 | 0.95 |
+| **fused-isolation** | isolation | 22 | 3 | 0 | 1.00 | **0.88** | 0.57 | 0.32 |
+| pressure-only (naive) | fairness | 12 | 3 | 0 | 1.00 | 0.80 | 12.81 | 12.99 |
+| **fused-fairness** | fairness | 12 | 3 | 0 | 1.00 | 0.80 | **2.48** | 2.64 |
+
+Detection latency is measured from injection start to the first piece of evidence in the matched
+alert. False-positive rate is 0/5 for every config.
+
+### 6.1 Interpretation
+
+- **Isolation: the two signals are complementary, not redundant.** Control-plane-only misses every
+  run of `networkpolicy-misconfig` and `dataplane-only-crossing` (no API call to see); network-flow-only
+  misses every run of `rbac-overpermission`, `credential-misuse` and `privilege-escalation` (no
+  data-plane crossing). Fusing them lifts recall from 0.60/0.40 to 0.88 — and any static baseline
+  (§5) sees none of these runtime events.
+- **Fairness: requiring a victim-side QoS breach cuts detection latency ~5×** (12.8 s → 2.5 s) at equal
+  recall. The pressure-only baseline is slow because kubelet/cAdvisor-derived pressure events arrive
+  tens of seconds after the hog starts, whereas the k6-derived victim breach appears within seconds.
+- **What the data does not show.** The expected precision advantage of fused-fairness over
+  pressure-only did not materialise: neither config produced a false positive, because the
+  negative-control windows are idle, so no benign-but-busy workload ever tested the naive rule.
+  Precision is therefore 1.00 for every config, which is a property of the (easy) controls, not
+  proof of a zero error rate. A busy-but-well-behaved tenant control is the obvious next experiment.
+
+### 6.2 Fixes required to get here
+
+The first full sweep (2026-08-31) scored `fused-fairness` at 0/15. The fusion rule was correct, but
+the evidence it needs never existed: on a 16-core host, CFS-limited hogs did not move the victim's
+p95 latency (≈3.6 ms before and during every injection), so no `victim-qos-latency` event was ever
+emitted. Fixes (details in `docs/risk-log.md` #15–16): worker CPU pinning; hogs scheduled on the
+victim's node and scaled to saturate it; a multi-process hog for `quota-bypass`; `qos_monitor.py` now
+re-emits while a breach is sustained instead of once per onset; a 20 s cooldown between runs; and the
+"correlation overhead" metric (which measured scoring time, not fusion cost) was replaced by measured
+classifier runtime (≈0.02 s for 1,274 events).
+
+### 6.3 Limitations and threats to validity
+
+- **Remaining misses (6 of 40 runs for the fused configs):** `rbac-overpermission` (2/5) and
+  `credential-misuse` (1/5) in the isolation track; `quota-bypass` (3/5) in the fairness track, where
+  resource-monitor emitted no pressure event inside the dwell window. These were not root-caused.
+- **Engineered contention.** Fairness violations are only observable because the node is pinned to
+  2 CPUs; on an unconstrained host these hogs are contained by their own CFS limits.
+- **Single host, single victim, one workload** (`/healthz` through a port-forward); 5 repetitions per
+  scenario, so confidence intervals are wide. Alerts that match no ground-truth run are reported as
+  `unaccounted_alerts` in `metrics.json` (15–63 per config) rather than counted as false positives;
+  many are the same event cluster re-alerting, but this has not been audited.
+- Isolation latency is measured at event level; the audit-log path is near-instant here but the
+  monitor depends on a root-owned `audit.log` workaround (`docs/risk-log.md` #9).
+- Auto-remediation remains an accepted stretch goal and is not implemented.
+
+## 7. Status
+
+All planned components are implemented and evaluated end-to-end; remaining work is the open items in
+§6.3 and polishing this report.

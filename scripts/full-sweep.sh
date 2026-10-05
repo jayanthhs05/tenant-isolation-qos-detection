@@ -14,7 +14,7 @@
 # Configurable via env vars (defaults shown):
 #   VICTIM_TENANT=tenant-b   tenant k6 loads for the victim-side QoS signal (no fairness
 #                            scenario injects into it directly)
-#   LOAD_DURATION=20m        k6 run length — must outlast the whole sweep (~12 min default)
+#   LOAD_DURATION=60m        k6 run length — must outlast the whole sweep (~35 min default)
 #   QOS_BASELINE_SECONDS=10  qos_monitor.py baseline window
 #   SETTLE_SECONDS=15        wait after starting load, so the QoS baseline settles on quiet
 #                            traffic before the first scenario runs
@@ -29,7 +29,7 @@ LOG_DIR="${ROOT_DIR}/.run"
 RESULTS_DIR="${ROOT_DIR}/evaluation/results"
 
 VICTIM_TENANT="${VICTIM_TENANT:-tenant-b}"
-LOAD_DURATION="${LOAD_DURATION:-20m}"
+LOAD_DURATION="${LOAD_DURATION:-60m}"
 QOS_BASELINE_SECONDS="${QOS_BASELINE_SECONDS:-10}"
 SETTLE_SECONDS="${SETTLE_SECONDS:-15}"
 KEEP_UP="${KEEP_UP:-1}"

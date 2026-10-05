@@ -27,6 +27,8 @@ echo "=== [2/6] Creating kind cluster (audit logging, no default CNI) ==="
 echo "=== [3/6] Installing Cilium + Hubble ==="
 "${ROOT_DIR}/scripts/install-cilium.sh"
 
+"${ROOT_DIR}/scripts/constrain-node.sh"  # real CPU contention for the fairness scenarios
+
 echo "=== [4/6] Applying tenant namespaces (namespace, RBAC, NetworkPolicy, ResourceQuota) ==="
 read -ra TENANTS <<< "${TENANTS:-tenant-a tenant-b tenant-c}"
 for TENANT in "${TENANTS[@]}"; do

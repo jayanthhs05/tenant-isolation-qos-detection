@@ -1,20 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/../lib.sh"
 
-echo ">>> Launching a memory-hog pod in tenant-a (simulates a noisy-neighbor batch job)"
-kubectl run memory-hog -n tenant-a --image=python:3.12-slim-bookworm --restart=Never \
-  --overrides='{
-    "spec": {
-      "serviceAccountName": "tenant-a-app",
-      "containers": [{
-        "name": "memory-hog",
-        "image": "python:3.12-slim-bookworm",
-        "command": ["python3", "-c",
-          "import time\nchunks = []\nfor _ in range(40):\n    chunks.append(bytearray(5 * 1024 * 1024))\n    time.sleep(0.5)\ntime.sleep(30)"],
-        "resources": {
-          "requests": {"cpu": "50m", "memory": "64Mi"},
-          "limits": {"cpu": "200m", "memory": "180Mi"}
-        }
-      }]
-    }
-  }'
+# Each pod ramps memory up (5MB / 0.3s) against a 140Mi limit, then keeps rewriting what it
+# holds — a memory-heavy batch job that is also CPU-bound on its working set, so the pressure
+# both shows up in workingSetBytes and contends with the victim for CPU.
+CODE='import time
+chunks = []
+for _ in range(25):
+    chunks.append(bytearray(5 * 1024 * 1024))
+    time.sleep(0.3)
+while True:
+    for c in chunks:
+        c[:] = bytes(len(c))'
+echo ">>> Launching memory-pressure pods in tenant-a"
+launch_hogs memory-hog "${HOG_COUNT:-6}" 100m 200m 64Mi 140Mi "${CODE}"

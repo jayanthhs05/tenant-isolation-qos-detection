@@ -33,8 +33,13 @@ bin/            User-local tool installs (kubectl, kind, helm, cilium, hubble, k
 
 ## Status
 
-Phase 0 (tooling bootstrap + repo scaffold) in progress. See `docs/implementation-plan.md` for
-the full phase breakdown, milestones, and known risks.
+All phases (0–11) are implemented and a full evaluation sweep has been run (8 scenarios × 5
+repetitions + 5 negative controls). Headline results: fused isolation detection recall 0.88 vs.
+0.60 (control-plane only) and 0.40 (network-flow only); fused fairness detection matches the naive
+pressure-only baseline's recall (0.80) with ~5× lower detection latency. Known gaps and
+threats to validity are in `docs/project-report.md` §6.3; engineering notes in
+`docs/risk-log.md`. Auto-remediation is a deliberately unimplemented stretch goal. Run everything
+with `scripts/full-sweep.sh` (see `COMMANDS.md`).
 
 ## Local environment
 
