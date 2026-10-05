@@ -18,4 +18,4 @@ def spin():
 for _ in range(2):
     mp.Process(target=spin).start()
 spin()'
-launch_hogs quota-bypass-hog "${HOG_COUNT:-1}" 1000m 1500m 64Mi 128Mi "${CODE}"
+launch_hogs quota-bypass-hog "${HOG_COUNT:-1}" 1000m 1200m 64Mi 128Mi "${CODE}"

@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import subprocess
 import sys
@@ -111,12 +112,32 @@ def print_overall_progress(completed: int, total: int, sweep_start: float, bar_w
           f"elapsed {_format_duration(elapsed)}  ETA {_format_duration(eta)}")
 
 
-def run_negative_control(window_seconds: float, output_path: Path) -> None:
+BUSY_CONTROL_DIR = ROOT_DIR / "scenarios" / "controls" / "busy-benign"
+
+
+def _run_control_script(name: str) -> None:
+    subprocess.run(
+        ["bash", str(BUSY_CONTROL_DIR / name)], check=False,
+        env={**os.environ, "PATH": f"{ROOT_DIR}/bin:{os.environ.get('PATH', '')}", "ROOT_DIR": str(ROOT_DIR)},
+    )
+
+
+def run_negative_control(window_seconds: float, output_path: Path, busy: bool = False) -> None:
+    """Idle windows (nothing happens) or, with busy=True, a *benign busy* window: a well-behaved
+    tenant saturating its own small CPU limit. Idle windows alone can't separate the naive
+    pressure-only rule from the fused rule (neither fires on silence); busy windows can."""
     start_ts = now_iso()
-    _dwell_with_progress(window_seconds, "negative-control window (no injection)")
-    end_ts = now_iso()
+    if busy:
+        _run_control_script("inject.sh")
+    try:
+        _dwell_with_progress(window_seconds, "negative-control window (benign busy tenant)" if busy
+                             else "negative-control window (no injection)")
+    finally:
+        end_ts = now_iso()
+        if busy:
+            _run_control_script("revert.sh")
     record = {
-        "window_type": "negative-control",
+        "window_type": "negative-control-busy" if busy else "negative-control",
         "start_ts": start_ts,
         "end_ts": end_ts,
     }
@@ -131,6 +152,11 @@ def main() -> int:
                          help="scenario dirs to include; default is every built scenario (full sweep)")
     parser.add_argument("--repetitions", type=int, default=5)
     parser.add_argument("--negative-control-windows", type=int, default=5)
+    parser.add_argument("--busy-control-windows", type=int, default=5,
+                         help="benign-busy negative-control windows (a well-behaved tenant saturating its own limit)")
+    parser.add_argument("--fairness-cooldown-seconds", type=float, default=45.0,
+                         help="longer cooldown after fairness runs: victim QoS-breach events linger past the "
+                              "injection and would otherwise merge into the next run's alert")
     parser.add_argument("--negative-control-seconds", type=float, default=20.0)
     parser.add_argument("--cooldown-seconds", type=float, default=20.0,
                          help="idle gap after each scenario run so the victim's latency recovers before the next "
@@ -154,6 +180,8 @@ def main() -> int:
             plan.append(("scenario", scenario_dir))
     for _ in range(args.negative_control_windows):
         plan.append(("negative-control", None))
+    for _ in range(args.busy_control_windows):
+        plan.append(("busy-control", None))
 
     if args.shuffle:
         random.Random(args.seed).shuffle(plan)
@@ -187,9 +215,13 @@ def main() -> int:
                 print(f"[run_evaluation] WARNING: scenario run {i} exited {result.returncode}, continuing sweep",
                       file=sys.stderr)
         else:
-            run_negative_control(args.negative_control_seconds, Path(args.negative_controls_output))
-        if kind == "scenario" and i < len(plan) and args.cooldown_seconds > 0:
-            _dwell_with_progress(args.cooldown_seconds, "cooldown")
+            run_negative_control(args.negative_control_seconds, Path(args.negative_controls_output),
+                                 busy=(kind == "busy-control"))
+        is_fairness = kind in ("scenario", "busy-control") and (
+            kind == "busy-control" or scenario_dir.parent.name == "fairness")
+        cooldown = args.fairness_cooldown_seconds if is_fairness else args.cooldown_seconds
+        if kind != "negative-control" and i < len(plan) and cooldown > 0:
+            _dwell_with_progress(cooldown, "cooldown")
         print_overall_progress(i, len(plan), sweep_start)
 
     print(f"\n[run_evaluation] sweep complete. ground truth: {args.ground_truth}, "

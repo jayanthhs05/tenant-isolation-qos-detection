@@ -17,6 +17,12 @@ class Alert:
     fused_at: str  # when this alert was emitted, after correlation
     detection_latency_seconds: float
     alert_id: str = dataclasses.field(default_factory=lambda: str(uuid.uuid4()))
+    # Per-track evidence onset. A "both" alert's `first_observed` is the earliest evidence of
+    # either kind, so judging an isolation (or fairness) detection by it would be thrown off by
+    # unrelated earlier evidence of the other kind that happened to merge in. None if the alert
+    # has no evidence of that kind.
+    isolation_first_observed: Optional[str] = None  # earliest control-plane / network-flow event
+    fairness_first_observed: Optional[str] = None  # earliest resource event
 
     def to_json(self) -> str:
         d: dict[str, Any] = dataclasses.asdict(self)

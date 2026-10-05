@@ -7,7 +7,7 @@
 # scenario injection (scripts/driver/run_scenario.py) or evaluation/harness/run_evaluation.py.
 #
 # Configurable via env vars (defaults shown):
-#   TENANT=tenant-b VUS=2 DURATION=4m LOCAL_PORT=18080 BREACH_RATIO=1.5 BASELINE_SECONDS=10
+#   TENANT=tenant-b VUS=2 DURATION=4m LOCAL_PORT=18080 BREACH_RATIO=2.5 BASELINE_SECONDS=10
 #
 # Usage:
 #   scripts/run-fairness-load.sh                                  # defaults
@@ -25,7 +25,7 @@ TENANT="${TENANT:-tenant-b}"
 VUS="${VUS:-2}"
 DURATION="${DURATION:-4m}"
 LOCAL_PORT="${LOCAL_PORT:-18080}"
-BREACH_RATIO="${BREACH_RATIO:-1.5}"
+BREACH_RATIO="${BREACH_RATIO:-2.5}"
 BASELINE_SECONDS="${BASELINE_SECONDS:-10}"
 K6_OUTPUT="${LOG_DIR}/k6-${TENANT}.jsonl"
 

@@ -77,7 +77,7 @@ def main() -> int:
     parser.add_argument("--baseline-seconds", type=float, default=10.0,
                          help="how long to sample before freezing the baseline p95")
     parser.add_argument("--rolling-window-seconds", type=float, default=10.0)
-    parser.add_argument("--breach-ratio", type=float, default=1.5)
+    parser.add_argument("--breach-ratio", type=float, default=2.5)
     parser.add_argument("--check-interval-seconds", type=float, default=2.0)
     parser.add_argument("--reemit-seconds", type=float, default=5.0,
                          help="while a breach is sustained, re-emit an event this often so fusion's "

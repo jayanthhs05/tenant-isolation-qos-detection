@@ -99,6 +99,13 @@ def alert_matches_track(alert: Alert, track: str) -> bool:
     return alert.category in ("fairness", "both")
 
 
+def track_first_observed(alert: Alert, track: str) -> str:
+    """Onset of the evidence that's relevant to `track`. Using the alert-wide first_observed would
+    penalise a "both" alert for unrelated, earlier evidence of the other kind that merged in."""
+    onset = alert.isolation_first_observed if track == "isolation" else alert.fairness_first_observed
+    return onset or alert.first_observed
+
+
 def alert_matches_ground_truth(alert: Alert, gt: dict, track: str) -> bool:
     if not alert_matches_track(alert, track):
         return False
@@ -109,7 +116,7 @@ def alert_matches_ground_truth(alert: Alert, gt: dict, track: str) -> bool:
         return False
     window_start = _parse_ts(gt["injection_start_ts"])
     window_end = _parse_ts(gt["injection_end_ts"]) + timedelta(seconds=MATCH_SLACK_SECONDS)
-    return window_start <= _parse_ts(alert.first_observed) <= window_end
+    return window_start <= _parse_ts(track_first_observed(alert, track)) <= window_end
 
 
 def score_config(name: str, config: dict, events: list[Event], ground_truth: list[dict],
@@ -131,27 +138,32 @@ def score_config(name: str, config: dict, events: list[Event], ground_truth: lis
         candidates = [a for a in track_alerts if alert_matches_ground_truth(a, gt, track)]
         if candidates:
             tp += 1
-            best = min(candidates, key=lambda a: _parse_ts(a.first_observed))
+            best = min(candidates, key=lambda a: _parse_ts(track_first_observed(a, track)))
             matched_alert_ids.add(best.alert_id)
-            latencies.append((_parse_ts(best.first_observed) - _parse_ts(gt["injection_start_ts"])).total_seconds())
+            latencies.append((_parse_ts(track_first_observed(best, track)) - _parse_ts(gt["injection_start_ts"])).total_seconds())
         else:
             fn += 1
 
     fp = 0
     tn = 0
+    fp_by_type: dict[str, int] = {}
+    windows_by_type: dict[str, int] = {}
     for window in negative_controls:
         window_start = _parse_ts(window["start_ts"])
         window_end = _parse_ts(window["end_ts"])
-        hit = any(window_start <= _parse_ts(a.first_observed) <= window_end for a in track_alerts)
+        wtype = window.get("window_type", "negative-control")
+        windows_by_type[wtype] = windows_by_type.get(wtype, 0) + 1
+        hit = any(window_start <= _parse_ts(track_first_observed(a, track)) <= window_end for a in track_alerts)
         if hit:
             fp += 1
+            fp_by_type[wtype] = fp_by_type.get(wtype, 0) + 1
         else:
             tn += 1
 
     accounted_for = matched_alert_ids | {
         a.alert_id for a in track_alerts
         for window in negative_controls
-        if _parse_ts(window["start_ts"]) <= _parse_ts(a.first_observed) <= _parse_ts(window["end_ts"])
+        if _parse_ts(window["start_ts"]) <= _parse_ts(track_first_observed(a, track)) <= _parse_ts(window["end_ts"])
     }
     unaccounted = len([a for a in track_alerts if a.alert_id not in accounted_for])
 
@@ -166,6 +178,9 @@ def score_config(name: str, config: dict, events: list[Event], ground_truth: lis
         "false_negatives": fn,
         "false_positives_in_negative_controls": fp,
         "true_negatives": tn,
+        # idle windows can't separate naive from fused rules; busy-benign windows can
+        "false_positives_by_window_type": {t: fp_by_type.get(t, 0) for t in windows_by_type},
+        "windows_by_type": windows_by_type,
         "unaccounted_alerts": unaccounted,
         "precision": precision,
         "recall": recall,

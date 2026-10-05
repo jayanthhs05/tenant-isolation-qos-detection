@@ -9,6 +9,6 @@ description: >
   weakened, not because a workload simply asked for more within its existing fair share.
 expected_namespaces: [tenant-a, tenant-b, tenant-c]
 expected_type: fairness
-dwell_seconds: 20
+dwell_seconds: 35
 inject: inject.sh
 revert: revert.sh

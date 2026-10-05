@@ -86,7 +86,14 @@ def _pair_to_tenants(pair: frozenset) -> tuple[str, str | None]:
 def _make_alert(category: str, tenants: tuple[str, str | None], clusters: list[list[Event]]) -> Alert:
     all_events = [e for cluster in clusters for e in cluster]
     first_observed = min(_parse_ts(e.timestamp) for e in all_events)
+
+    def _onset(sources: tuple[str, ...]) -> str | None:
+        times = [_parse_ts(e.timestamp) for e in all_events if e.source in sources]
+        return min(times).isoformat() if times else None
+
     return Alert(
+        isolation_first_observed=_onset(("control-plane", "network-flow")),
+        fairness_first_observed=_onset(("resource",)),
         category=category,
         tenants=tuple(sorted(t for t in tenants if t is not None)) if tenants[1] else (tenants[0], None),
         sources=sorted({e.source for e in all_events}),

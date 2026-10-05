@@ -165,6 +165,28 @@ def test_pressure_only_ablation_does_not_pair_with_isolation():
     print("PASS: pressure-only ablation stays separate from an overlapping isolation alert")
 
 
+def test_both_alert_keeps_per_track_onsets():
+    """A "both" alert's first_observed is the earliest evidence of either kind; the per-track
+    onsets must still point at each kind's own earliest event, so scoring an isolation detection
+    isn't thrown off by earlier fairness evidence that merged in."""
+    events = [
+        ev("resource", "2026-08-19T10:00:00+00:00", "tenant-a",
+           resource_type="pod-cpu-throttle", verb="throttled", principal="hog"),
+        ev("resource", "2026-08-19T10:00:03+00:00", "tenant-b",
+           resource_type="victim-qos-latency", verb="breach"),
+        ev("control-plane", "2026-08-19T10:00:08+00:00", "tenant-a", "tenant-b",
+           resource_type="pods", verb="get", principal="system:serviceaccount:tenant-a:app"),
+    ]
+    alerts = classify_events(events)
+    both = [a for a in alerts if a.category == "both"]
+    assert len(both) == 1, [a.category for a in alerts]
+    a = both[0]
+    assert a.first_observed.startswith("2026-08-19T10:00:00"), a.first_observed
+    assert a.isolation_first_observed.startswith("2026-08-19T10:00:08"), a.isolation_first_observed
+    assert a.fairness_first_observed.startswith("2026-08-19T10:00:00"), a.fairness_first_observed
+    print("PASS: merged 'both' alert keeps separate isolation/fairness onsets")
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for test in tests:

@@ -203,3 +203,20 @@ CFS limits protecting co-located tenants.
   the upstream command gets SIGPIPE, and under `pipefail` the check intermittently reported
   "not installed", triggering a re-download that could abort `scripts/up.sh`. Checks now read
   the whole stream, and a failed download keeps an existing binary.
+
+## 17. Scoring and sensitivity issues found in the second sweep
+**Status:** Resolved (17a, 17b); Open / documented (17c).
+- **17a. "both" alerts hid isolation detections.** `Alert.first_observed` is the earliest evidence of
+  either kind, so an isolation alert merged with lingering fairness evidence from a preceding run
+  started before its injection window and scored as a miss (3 of 25 isolation runs). Fix: per-track
+  onsets on `Alert` (`isolation_first_observed`, `fairness_first_observed`); `compute_metrics.py`
+  scores each track by its own evidence. Longer cooldown after fairness runs (45 s) reduces the
+  merging in the first place.
+- **17b. The 1.5× QoS breach ratio was too sensitive.** A single benign 200m job raised victim p95
+  to 7–9 ms vs. 5 ms idle, so the fused rule false-alarmed on all 5 benign-busy windows (worse than
+  naive pressure-only on precision). `qos_threshold_sweep.py` replays k6 output at several ratios;
+  2.5× removes the false positives, and a fresh live run at 2.5× confirmed it (precision 1.00,
+  recall 0.87). 2.5× is now the default in `qos_monitor.py` and `run-fairness-load.sh`.
+- **17c. Remaining recall gaps** (fused-fairness 13/15): a run where resource-monitor never crossed
+  its 85% pressure threshold, and one where a pre-existing breach merged into the alert.
+  Not fixed; documented in the report.

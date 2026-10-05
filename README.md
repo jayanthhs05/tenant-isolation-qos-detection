@@ -33,11 +33,13 @@ bin/            User-local tool installs (kubectl, kind, helm, cilium, hubble, k
 
 ## Status
 
-All phases (0–11) are implemented and a full evaluation sweep has been run (8 scenarios × 5
-repetitions + 5 negative controls). Headline results: fused isolation detection recall 0.88 vs.
-0.60 (control-plane only) and 0.40 (network-flow only); fused fairness detection matches the naive
-pressure-only baseline's recall (0.80) with ~5× lower detection latency. Known gaps and
-threats to validity are in `docs/project-report.md` §6.3; engineering notes in
+All phases (0–11) are implemented and evaluated end to end (8 scenarios × 5 repetitions + 10
+negative controls, including benign-busy tenants). Headline results: fused isolation detection
+reaches recall 1.00 (25/25) versus 0.60 (control-plane only) and 0.40 (network-flow only); fused
+fairness detection has no false positives against benign-busy tenants (precision 1.00 vs. 0.88 for
+the naive pressure-only rule) and detects ~6× sooner, at a small recall cost (0.87 vs. 0.93). The
+fairness result depends on the victim QoS breach threshold (default 2.5×), chosen post hoc and
+validated on a fresh run. Limitations are in `docs/project-report.md` §6.4 and engineering notes in
 `docs/risk-log.md`. Auto-remediation is a deliberately unimplemented stretch goal. Run everything
 with `scripts/full-sweep.sh` (see `COMMANDS.md`).
 

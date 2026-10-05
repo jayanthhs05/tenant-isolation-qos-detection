@@ -11,7 +11,7 @@ cpuset (`scripts/constrain-node.sh`, run by `scripts/up.sh`) — see `docs/risk-
 ## What "full sweep" means here
 
 All 8 built scenarios (5 isolation + 3 fairness; `scenarios/fairness/04-io-noisy-neighbor` is
-an unbuilt stretch goal, see `docs/risk-log.md` #6) x 5 repetitions each, plus 5 negative-control
+an unbuilt stretch goal, see `docs/risk-log.md` #6) x 5 repetitions each, plus 5 idle and 5 benign-busy negative-control
 idle windows (`docs/risk-log.md` #3 — false-positive rate is meaningless without explicit
 no-injection windows to measure it against).
 
@@ -82,7 +82,7 @@ Give this ~15s before starting the sweep so `qos_monitor.py`'s baseline window
 python3 evaluation/harness/run_evaluation.py --dry-run
 ```
 
-**4. Run the full sweep** (~35 minutes; add `--shuffle --seed N` for a randomized,
+**4. Run the full sweep** (~50 minutes; add `--shuffle --seed N` for a randomized,
 reproducible run order instead of grouping by scenario):
 
 ```bash
@@ -138,3 +138,15 @@ detector config added to `DETECTOR_CONFIGS`) can be re-scored against an existin
 with no new cluster time — just re-run `compute_metrics.py`. The event logs and
 `ground_truth.jsonl`/`negative_controls.jsonl` are the durable artifacts of a sweep; delete and
 re-run `run_evaluation.py` only when you actually want fresh injections.
+
+## Benign-busy controls and threshold analysis
+
+Idle negative-control windows can't distinguish a naive "pressure alone" fairness rule from the
+fused rule (neither fires on silence). `run_evaluation.py --busy-control-windows N` (default 5) adds
+windows where a well-behaved tenant saturates its own small CPU limit
+(`scenarios/controls/busy-benign/`); `metrics.json` reports false positives per window type
+(`false_positives_by_window_type`). After a sweep, `evaluation/metrics/qos_threshold_sweep.py`
+replays the k6 output at several `--breach-ratio` values and re-scores `fused-fairness`; treat it as
+post-hoc sensitivity analysis and validate any chosen value on a fresh sweep (see
+`docs/project-report.md` §6). Alerts are scored per track using `isolation_first_observed` /
+`fairness_first_observed`, not the alert-wide `first_observed`.
