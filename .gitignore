@@ -36,3 +36,17 @@ infra/kind/kind-config.rendered.yaml
 # editor/OS cruft
 .DS_Store
 *.swp
+
+# LaTeX build artifacts (the PDFs are tracked)
+docs/report/*.aux
+docs/report/*.log
+docs/report/*.out
+docs/report/*.bbl
+docs/report/*.blg
+docs/presentation/*.aux
+docs/presentation/*.log
+docs/presentation/*.out
+docs/presentation/*.nav
+docs/presentation/*.snm
+docs/presentation/*.toc
+docs/presentation/*.vrb
