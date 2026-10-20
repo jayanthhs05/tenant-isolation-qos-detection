@@ -1,0 +1,62 @@
+[
+  {
+    "breach_ratio": 1.5,
+    "true_positives": 12,
+    "false_negatives": 3,
+    "precision": 0.7058823529411765,
+    "recall": 0.8,
+    "mean_detection_latency_seconds": 2.48576,
+    "false_positives_by_window_type": {
+      "negative-control-busy": 5,
+      "negative-control": 0
+    }
+  },
+  {
+    "breach_ratio": 1.75,
+    "true_positives": 15,
+    "false_negatives": 0,
+    "precision": 0.75,
+    "recall": 1.0,
+    "mean_detection_latency_seconds": 2.6401971333333334,
+    "false_positives_by_window_type": {
+      "negative-control-busy": 5,
+      "negative-control": 0
+    }
+  },
+  {
+    "breach_ratio": 2.0,
+    "true_positives": 15,
+    "false_negatives": 0,
+    "precision": 0.7894736842105263,
+    "recall": 1.0,
+    "mean_detection_latency_seconds": 2.7746323333333334,
+    "false_positives_by_window_type": {
+      "negative-control-busy": 4,
+      "negative-control": 0
+    }
+  },
+  {
+    "breach_ratio": 2.5,
+    "true_positives": 15,
+    "false_negatives": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "mean_detection_latency_seconds": 4.189841066666666,
+    "false_positives_by_window_type": {
+      "negative-control-busy": 0,
+      "negative-control": 0
+    }
+  },
+  {
+    "breach_ratio": 3.0,
+    "true_positives": 15,
+    "false_negatives": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "mean_detection_latency_seconds": 4.7340507333333335,
+    "false_positives_by_window_type": {
+      "negative-control-busy": 0,
+      "negative-control": 0
+    }
+  }
+]

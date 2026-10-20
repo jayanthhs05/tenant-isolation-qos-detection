@@ -1,0 +1,122 @@
+[
+  {
+    "detector_config": "control-plane-only",
+    "track": "isolation",
+    "true_positives": 0,
+    "false_negatives": 0,
+    "false_positives_in_negative_controls": 0,
+    "true_negatives": 10,
+    "false_positives_by_window_type": {
+      "negative-control": 0,
+      "negative-control-busy": 0
+    },
+    "windows_by_type": {
+      "negative-control": 5,
+      "negative-control-busy": 5
+    },
+    "unaccounted_alerts": 67,
+    "precision": null,
+    "recall": null,
+    "false_positive_rate": 0.0,
+    "mean_detection_latency_seconds": null,
+    "median_detection_latency_seconds": null,
+    "classification_runtime_seconds": 0.0011782980000134557,
+    "events_classified": 96
+  },
+  {
+    "detector_config": "network-flow-only",
+    "track": "isolation",
+    "true_positives": 0,
+    "false_negatives": 0,
+    "false_positives_in_negative_controls": 0,
+    "true_negatives": 10,
+    "false_positives_by_window_type": {
+      "negative-control": 0,
+      "negative-control-busy": 0
+    },
+    "windows_by_type": {
+      "negative-control": 5,
+      "negative-control-busy": 5
+    },
+    "unaccounted_alerts": 35,
+    "precision": null,
+    "recall": null,
+    "false_positive_rate": 0.0,
+    "mean_detection_latency_seconds": null,
+    "median_detection_latency_seconds": null,
+    "classification_runtime_seconds": 0.003928565000023809,
+    "events_classified": 1214
+  },
+  {
+    "detector_config": "fused-isolation",
+    "track": "isolation",
+    "true_positives": 0,
+    "false_negatives": 0,
+    "false_positives_in_negative_controls": 0,
+    "true_negatives": 10,
+    "false_positives_by_window_type": {
+      "negative-control": 0,
+      "negative-control-busy": 0
+    },
+    "windows_by_type": {
+      "negative-control": 5,
+      "negative-control-busy": 5
+    },
+    "unaccounted_alerts": 94,
+    "precision": null,
+    "recall": null,
+    "false_positive_rate": 0.0,
+    "mean_detection_latency_seconds": null,
+    "median_detection_latency_seconds": null,
+    "classification_runtime_seconds": 0.03378243599945563,
+    "events_classified": 2020
+  },
+  {
+    "detector_config": "pressure-only",
+    "track": "fairness",
+    "true_positives": 14,
+    "false_negatives": 1,
+    "false_positives_in_negative_controls": 2,
+    "true_negatives": 8,
+    "false_positives_by_window_type": {
+      "negative-control": 0,
+      "negative-control-busy": 2
+    },
+    "windows_by_type": {
+      "negative-control": 5,
+      "negative-control-busy": 5
+    },
+    "unaccounted_alerts": 131,
+    "precision": 0.875,
+    "recall": 0.9333333333333333,
+    "false_positive_rate": 0.2,
+    "mean_detection_latency_seconds": 14.537222928571428,
+    "median_detection_latency_seconds": 14.711362000000001,
+    "classification_runtime_seconds": 0.008359370000107447,
+    "events_classified": 2020
+  },
+  {
+    "detector_config": "fused-fairness",
+    "track": "fairness",
+    "true_positives": 13,
+    "false_negatives": 2,
+    "false_positives_in_negative_controls": 0,
+    "true_negatives": 10,
+    "false_positives_by_window_type": {
+      "negative-control": 0,
+      "negative-control-busy": 0
+    },
+    "windows_by_type": {
+      "negative-control": 5,
+      "negative-control-busy": 5
+    },
+    "unaccounted_alerts": 77,
+    "precision": 1.0,
+    "recall": 0.8666666666666667,
+    "false_positive_rate": 0.0,
+    "mean_detection_latency_seconds": 2.537490076923077,
+    "median_detection_latency_seconds": 2.488576,
+    "classification_runtime_seconds": 0.051117757000611164,
+    "events_classified": 2020
+  }
+]

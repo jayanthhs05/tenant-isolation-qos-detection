@@ -50,3 +50,6 @@ docs/presentation/*.nav
 docs/presentation/*.snm
 docs/presentation/*.toc
 docs/presentation/*.vrb
+
+# raw k6 per-request dumps (hundreds of MB)
+evaluation/results/**/k6-*.jsonl
