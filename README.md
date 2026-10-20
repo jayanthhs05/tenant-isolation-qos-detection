@@ -43,6 +43,11 @@ validated on a fresh run. Limitations are in `docs/project-report.md` §6.4 and 
 `docs/risk-log.md`. Auto-remediation is a deliberately unimplemented stretch goal. Run everything
 with `scripts/full-sweep.sh` (see `COMMANDS.md`).
 
+Where the numbers live: isolation results come from `evaluation/results/sweep2-ratio1.5/` (full
+sweep at the 1.5× QoS threshold); fairness results at the default 2.5× threshold come from
+`evaluation/results/validation-ratio2.5/`, a fairness-only rerun (its isolation rows are empty by
+design). The top-level `evaluation/results/metrics.json` is that fairness-only run.
+
 ## Local environment
 
 Requires Docker. All other tooling (kubectl, kind, helm, cilium CLI, hubble CLI, kube-bench,
